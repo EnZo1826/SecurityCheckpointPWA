@@ -1021,7 +1021,6 @@ const DB = {
           const store = db.createObjectStore('visitors', { keyPath: 'id' });
           store.createIndex('status', 'status', { unique: false });
           store.createIndex('time_in', 'time_in', { unique: false });
-          store.createIndex('synced', 'synced', { unique: false });
           store.createIndex('visitor_name', 'visitor_name', { unique: false });
           store.createIndex('cell_no', 'cell_no', { unique: false });
         }
@@ -1091,13 +1090,8 @@ const DB = {
   },
 
   async getUnsynced() {
-    return new Promise((resolve, reject) => {
-      const store = this._tx('visitors');
-      const idx = store.index('synced');
-      const req = idx.getAll(false);
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = (e) => reject(e.target.error);
-    });
+    const all = await this.getAllVisitors();
+    return all.filter(v => !v.synced);
   },
 
   async findActive(name, cell_no) {
@@ -1337,10 +1331,19 @@ const Sync = {
     }
 
     try {
+      // Use POST since Frappe API endpoints typically only accept POST
       const resp = await fetch(url, {
-        method: 'GET',
-        headers: authHeader
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeader
+        },
+        body: JSON.stringify({ _test_connection: true })
       });
+      // 401/403 = auth rejected; anything else (200, 400, 422, 500) = connection works
+      if (resp.status === 401 || resp.status === 403) {
+        return { ok: false, error: `Authentication failed (HTTP ${resp.status}). Check your API token.` };
+      }
       return { ok: true, status: resp.status };
     } catch (err) {
       if (err instanceof TypeError && (
