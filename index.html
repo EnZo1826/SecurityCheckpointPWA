@@ -1229,6 +1229,28 @@ const Sync = {
     return { 'Authorization': 'token ' + t };
   },
 
+  // Convert ISO datetime to MySQL-compatible format: YYYY-MM-DD HH:MM:SS
+  toMySQL(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  },
+
+  // Prepare record for Frappe API — convert all datetime fields
+  preparePayload(record) {
+    const payload = { ...record };
+    payload.time_in = this.toMySQL(payload.time_in);
+    payload.time_out = this.toMySQL(payload.time_out);
+    payload.created_at = this.toMySQL(payload.created_at);
+    payload.updated_at = this.toMySQL(payload.updated_at);
+    // Remove local-only fields that Frappe doesn't need
+    delete payload.synced;
+    delete payload.sync_error;
+    return payload;
+  },
+
   updateUI() {
     const badge = document.getElementById('sync-status-badge');
     if (!badge) return;
@@ -1269,7 +1291,7 @@ const Sync = {
               'Content-Type': 'application/json',
               ...this.getAuthHeader()
             },
-            body: JSON.stringify(record)
+            body: JSON.stringify(this.preparePayload(record))
           });
 
           if (resp.ok) {
