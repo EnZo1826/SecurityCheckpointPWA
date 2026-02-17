@@ -1,4 +1,4 @@
-const CACHE_NAME = 'security-checkpoint-v1.0.0';
+const CACHE_NAME = 'security-checkpoint-v1.1.0';
 const ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,21 @@ const ASSETS = [
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css',
   'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js'
 ];
+
+// Domains and paths that should NEVER be intercepted by the service worker.
+// API calls, auth endpoints, and any external data requests must pass
+// straight through to the network to avoid CORS and caching issues.
+const PASSTHROUGH_PATTERNS = [
+  '/api/',
+  '/oauth/',
+  '/auth/',
+  '/token'
+];
+
+function shouldPassthrough(url) {
+  const path = new URL(url).pathname.toLowerCase();
+  return PASSTHROUGH_PATTERNS.some(p => path.includes(p));
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -30,19 +45,32 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const request = event.request;
+
+  // PASSTHROUGH: Let non-GET requests and API calls go directly to network.
+  // Do NOT call event.respondWith — let the browser handle it natively.
+  // This completely avoids SW interference with CORS preflight and API calls.
+  if (request.method !== 'GET' || shouldPassthrough(request.url)) {
+    return;
+  }
+
+  // CACHE STRATEGY: Cache-first for GET requests to static assets
   event.respondWith(
-    caches.match(event.request).then((cached) => {
+    caches.match(request).then((cached) => {
       if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        if (response && response.status === 200 && response.type === 'basic') {
+      return fetch(request).then((response) => {
+        if (response && response.status === 200 && (response.type === 'basic' || response.type === 'cors')) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }
         return response;
       }).catch(() => {
-        if (event.request.destination === 'document') {
+        // Offline fallback: serve app shell for document requests
+        if (request.destination === 'document') {
           return caches.match('./index.html');
         }
+        // Return a proper 503 Response instead of undefined
+        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
       });
     })
   );
