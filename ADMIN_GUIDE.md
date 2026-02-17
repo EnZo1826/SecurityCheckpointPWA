@@ -81,20 +81,20 @@ Content-Type: application/json
 
 {
   "id": "xxxx-xxxx-4xxx-yxxx-xxxx-xxxxx",
-  "name": "John Smith",
-  "cellNo": "072 123 4567",
+  "visitor_name": "John Smith",
+  "cell_no": "072 123 4567",
   "company": "Acme Corp",
-  "vehicleReg": "CA 123-456",
-  "timeIn": "2025-01-15T08:30:00.000Z",
-  "timeOut": "2025-01-15T16:45:00.000Z",
+  "vehicle_reg": "CA 123-456",
+  "time_in": "2025-01-15T08:30:00.000Z",
+  "time_out": "2025-01-15T16:45:00.000Z",
   "status": "EXITED",
-  "totalMinutesOnSite": 495,
+  "total_minutes_on_site": 495,
   "notes": "",
-  "createdAt": "2025-01-15T08:30:00.000Z",
-  "updatedAt": "2025-01-15T16:45:00.000Z",
-  "deviceId": "DEV-xxxx-xxxx",
+  "created_at": "2025-01-15T08:30:00.000Z",
+  "updated_at": "2025-01-15T16:45:00.000Z",
+  "device_id": "DEV-xxxx-xxxx",
   "synced": false,
-  "syncError": null,
+  "sync_error": null,
   "version": 2
 }
 ```
