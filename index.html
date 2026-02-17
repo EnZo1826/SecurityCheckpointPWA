@@ -666,68 +666,21 @@ html, body {
       <div class="setting-group-title"><i class="bi bi-cloud-arrow-up-fill me-1"></i> Online Database Sync</div>
       <div class="p-3">
         <div class="mb-3">
-          <label class="form-label">REST API Base URL</label>
-          <input type="url" class="form-control" id="set-api-url" placeholder="https://api.example.com/visitors">
-        </div>
-
-        <div class="mb-2" style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);padding-top:0.5rem;border-top:1px solid var(--border);">
-          <i class="bi bi-key-fill me-1"></i> Token Authentication
+          <label class="form-label">REST API Endpoint</label>
+          <input type="url" class="form-control" id="set-api-url" placeholder="https://example.com/api/method/app.api.visitors.post_visitor">
         </div>
         <div class="mb-3">
-          <label class="form-label">Auth Token URL</label>
-          <input type="url" class="form-control" id="set-auth-url" placeholder="https://auth.example.com/oauth/token">
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Client ID</label>
-          <input type="text" class="form-control" id="set-client-id" placeholder="Client identifier">
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Client Secret</label>
-          <input type="password" class="form-control" id="set-client-secret" placeholder="Client secret key">
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Grant Type</label>
-          <select class="form-select" id="set-grant-type">
-            <option value="client_credentials" selected>Client Credentials</option>
-            <option value="password">Resource Owner Password</option>
-          </select>
-        </div>
-        <div class="mb-3" id="set-ro-fields" style="display:none;">
-          <div class="row g-2">
-            <div class="col-6">
-              <label class="form-label">Username</label>
-              <input type="text" class="form-control" id="set-auth-username" placeholder="Username">
-            </div>
-            <div class="col-6">
-              <label class="form-label">Password</label>
-              <input type="password" class="form-control" id="set-auth-password" placeholder="Password">
-            </div>
+          <label class="form-label">API Token</label>
+          <input type="password" class="form-control" id="set-api-token" placeholder="token api_key:api_secret">
+          <div class="form-text" style="font-size:0.7rem;color:var(--text-muted);margin-top:0.35rem;">
+            Frappe format: <code style="color:var(--accent);">token api_key:api_secret</code>
           </div>
         </div>
-        <div class="mb-3">
-          <label class="form-label">Scope (optional)</label>
-          <input type="text" class="form-control" id="set-auth-scope" placeholder="e.g. read write sync">
-        </div>
-
-        <div id="token-status" class="mb-3" style="display:none;">
-          <div class="sc-card" style="padding:0.75rem;margin-bottom:0;">
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <div>
-                <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600;">Token Status</div>
-                <div id="token-status-text" style="font-size:0.85rem;font-weight:600;margin-top:0.15rem;"></div>
-              </div>
-              <button class="btn btn-outline-accent btn-sm" onclick="App.refreshToken()" title="Refresh Token">
-                <i class="bi bi-arrow-repeat"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-
         <div class="d-flex gap-2 flex-wrap">
           <button class="btn btn-outline-accent btn-sm" onclick="App.testConnection()">
             <i class="bi bi-plug-fill me-1"></i>Test Connection
           </button>
-          <button class="btn btn-accent btn-sm" onclick="App.saveSyncConfig()">Save Config</button>
+          <button class="btn btn-accent btn-sm" onclick="App.saveSyncConfig()">Save</button>
         </div>
         <div id="sync-test-result" class="mt-2" style="font-size:0.85rem;"></div>
       </div>
@@ -1247,213 +1200,40 @@ const DB = {
 };
 
 
+
+
 /* ═══════════════════════════════════════
-   SYNC ENGINE — Token Authentication
+   SYNC ENGINE — Static Token Auth
    ═══════════════════════════════════════ */
 const Sync = {
   config: null,
-  token: null,       // { access_token, token_type, expires_at, refresh_token }
   timer: null,
-  refreshTimer: null,
   backoff: 1000,
   maxBackoff: 60000,
   isOnline: navigator.onLine,
 
   async init() {
     const url = await DB.getSetting('sync_api_url');
-    const authUrl = await DB.getSetting('sync_auth_url');
-    const clientId = await DB.getSetting('sync_client_id');
-    const clientSecret = await DB.getSetting('sync_client_secret');
-    const grantType = await DB.getSetting('sync_grant_type');
-    const scope = await DB.getSetting('sync_auth_scope');
-    const authUsername = await DB.getSetting('sync_auth_username');
-    const authPassword = await DB.getSetting('sync_auth_password');
-
-    if (url && authUrl && clientId) {
-      this.config = { url, authUrl, clientId, clientSecret, grantType: grantType || 'client_credentials', scope, authUsername, authPassword };
-    }
-
-    // Restore cached token
-    const cachedToken = await DB.getSetting('sync_token');
-    if (cachedToken) {
-      try {
-        this.token = JSON.parse(cachedToken);
-        if (this.isTokenExpired()) this.token = null;
-      } catch { this.token = null; }
-    }
+    const token = await DB.getSetting('sync_api_token');
+    if (url && token) this.config = { url, token };
 
     window.addEventListener('online', () => { this.isOnline = true; this.updateUI(); this.startSync(); });
     window.addEventListener('offline', () => { this.isOnline = false; this.updateUI(); });
     this.updateUI();
-    this.updateTokenUI();
 
     if (this.config && this.isOnline) this.startSync();
   },
 
-  // ─── TOKEN MANAGEMENT ───
-
-  isTokenExpired() {
-    if (!this.token || !this.token.expires_at) return true;
-    // Expire 60s early to avoid edge-case failures
-    return Date.now() >= (this.token.expires_at - 60000);
-  },
-
-  async acquireToken() {
-    if (!this.config || !this.config.authUrl) {
-      throw new Error('Token auth not configured');
-    }
-
-    const params = new URLSearchParams();
-    params.append('grant_type', this.config.grantType);
-    params.append('client_id', this.config.clientId);
-    if (this.config.clientSecret) params.append('client_secret', this.config.clientSecret);
-    if (this.config.scope) params.append('scope', this.config.scope);
-
-    // Resource Owner Password grant
-    if (this.config.grantType === 'password') {
-      if (this.config.authUsername) params.append('username', this.config.authUsername);
-      if (this.config.authPassword) params.append('password', this.config.authPassword);
-    }
-
-    let resp;
-    try {
-      resp = await fetch(this.config.authUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString()
-      });
-    } catch (err) {
-      if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
-        throw new Error('CORS blocked on auth endpoint — server must allow origin: ' + window.location.origin);
-      }
-      throw err;
-    }
-
-    if (!resp.ok) {
-      const errBody = await resp.text().catch(() => '');
-      throw new Error(`Token request failed: HTTP ${resp.status} ${errBody.slice(0, 200)}`);
-    }
-
-    const data = await resp.json();
-
-    this.token = {
-      access_token: data.access_token,
-      token_type: data.token_type || 'Bearer',
-      expires_at: Date.now() + ((data.expires_in || 3600) * 1000),
-      refresh_token: data.refresh_token || null
-    };
-
-    // Persist token
-    await DB.setSetting('sync_token', JSON.stringify(this.token));
-    this.scheduleTokenRefresh();
-    this.updateTokenUI();
-    return this.token;
-  },
-
-  async refreshTokenIfNeeded() {
-    // If token is valid, return it
-    if (this.token && !this.isTokenExpired()) return this.token;
-
-    // Try refresh_token grant if available
-    if (this.token && this.token.refresh_token) {
-      try {
-        return await this.doRefreshToken();
-      } catch {
-        // Refresh failed, fall through to full acquire
-      }
-    }
-
-    // Acquire fresh token
-    return await this.acquireToken();
-  },
-
-  async doRefreshToken() {
-    if (!this.config || !this.token || !this.token.refresh_token) {
-      throw new Error('No refresh token available');
-    }
-
-    const params = new URLSearchParams();
-    params.append('grant_type', 'refresh_token');
-    params.append('refresh_token', this.token.refresh_token);
-    params.append('client_id', this.config.clientId);
-    if (this.config.clientSecret) params.append('client_secret', this.config.clientSecret);
-
-    const resp = await fetch(this.config.authUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString()
-    });
-
-    if (!resp.ok) throw new Error(`Refresh failed: HTTP ${resp.status}`);
-
-    const data = await resp.json();
-
-    this.token = {
-      access_token: data.access_token,
-      token_type: data.token_type || 'Bearer',
-      expires_at: Date.now() + ((data.expires_in || 3600) * 1000),
-      refresh_token: data.refresh_token || this.token.refresh_token
-    };
-
-    await DB.setSetting('sync_token', JSON.stringify(this.token));
-    this.scheduleTokenRefresh();
-    this.updateTokenUI();
-    return this.token;
-  },
-
-  scheduleTokenRefresh() {
-    if (this.refreshTimer) clearTimeout(this.refreshTimer);
-    if (!this.token || !this.token.expires_at) return;
-
-    // Refresh at 75% of token lifetime
-    const remaining = this.token.expires_at - Date.now();
-    const refreshIn = Math.max(remaining * 0.75, 5000);
-
-    this.refreshTimer = setTimeout(async () => {
-      try {
-        await this.refreshTokenIfNeeded();
-      } catch (err) {
-        console.warn('Scheduled token refresh failed:', err.message);
-      }
-    }, refreshIn);
-  },
-
   getAuthHeader() {
-    if (!this.token || !this.token.access_token) return {};
-    const type = (this.token.token_type || 'Bearer').replace(/^\w/, c => c.toUpperCase());
-    return { 'Authorization': `${type} ${this.token.access_token}` };
-  },
-
-  async clearToken() {
-    this.token = null;
-    if (this.refreshTimer) clearTimeout(this.refreshTimer);
-    await DB.setSetting('sync_token', null);
-    this.updateTokenUI();
-  },
-
-  updateTokenUI() {
-    const container = document.getElementById('token-status');
-    const text = document.getElementById('token-status-text');
-    if (!container || !text) return;
-
-    if (!this.config) {
-      container.style.display = 'none';
-      return;
+    if (!this.config || !this.config.token) return {};
+    // Support Frappe "token api_key:api_secret" and "Bearer xxx" formats
+    const t = this.config.token.trim();
+    if (t.toLowerCase().startsWith('token ') || t.toLowerCase().startsWith('bearer ')) {
+      return { 'Authorization': t };
     }
-
-    container.style.display = 'block';
-
-    if (!this.token || !this.token.access_token) {
-      text.innerHTML = '<span style="color:var(--text-muted);"><i class="bi bi-circle me-1"></i>No token</span>';
-    } else if (this.isTokenExpired()) {
-      text.innerHTML = '<span style="color:var(--danger);"><i class="bi bi-x-circle-fill me-1"></i>Expired</span>';
-    } else {
-      const remaining = Math.round((this.token.expires_at - Date.now()) / 60000);
-      text.innerHTML = `<span style="color:var(--success);"><i class="bi bi-check-circle-fill me-1"></i>Active</span> <span style="color:var(--text-muted);font-size:0.75rem;">(${remaining}m remaining)</span>`;
-    }
+    // Default: assume Frappe token format
+    return { 'Authorization': 'token ' + t };
   },
-
-  // ─── SYNC STATUS UI ───
 
   updateUI() {
     const badge = document.getElementById('sync-status-badge');
@@ -1470,8 +1250,6 @@ const Sync = {
     }
   },
 
-  // ─── SYNC OPERATIONS ───
-
   startSync() {
     if (this.timer) clearTimeout(this.timer);
     this.doSync();
@@ -1480,9 +1258,6 @@ const Sync = {
   async doSync() {
     if (!this.config || !this.isOnline) return;
     try {
-      // Ensure valid token before syncing
-      await this.refreshTokenIfNeeded();
-
       const unsynced = await DB.getUnsynced();
       if (unsynced.length === 0) {
         this.backoff = 30000;
@@ -1503,34 +1278,17 @@ const Sync = {
             body: JSON.stringify(record)
           });
 
-          // If 401, try refreshing token once and retry
-          if (resp.status === 401) {
-            await this.acquireToken();
-            const retry = await fetch(this.config.url, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...this.getAuthHeader()
-              },
-              body: JSON.stringify(record)
-            });
-            if (retry.ok) {
-              record.synced = true;
-              record.sync_error = null;
-            } else {
-              record.sync_error = `HTTP ${retry.status} (after token refresh)`;
-            }
-          } else if (resp.ok) {
+          if (resp.ok) {
             record.synced = true;
             record.sync_error = null;
           } else {
-            record.sync_error = `HTTP ${resp.status}`;
+            const errText = await resp.text().catch(() => '');
+            record.sync_error = `HTTP ${resp.status}: ${errText.slice(0, 150)}`;
           }
 
           record.updated_at = T.now();
           await DB.addVisitor(record);
         } catch (err) {
-          // Detect CORS block (browser returns TypeError: Failed to fetch)
           if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
             record.sync_error = 'CORS blocked — server must allow this origin';
             corsBlocked = true;
@@ -1539,7 +1297,6 @@ const Sync = {
           }
           record.updated_at = T.now();
           await DB.addVisitor(record);
-          // If CORS blocked, stop trying further records — they will all fail
           if (corsBlocked) break;
         }
       }
@@ -1557,12 +1314,7 @@ const Sync = {
       App.toast('Sync complete', 'success');
     } catch (err) {
       console.warn('Sync error:', err.message);
-      if (err.message.includes('CORS') || err.message.includes('Failed to fetch')) {
-        App.toast('Sync blocked by CORS policy', 'error');
-        this.backoff = this.maxBackoff;
-      } else {
-        this.backoff = Math.min(this.backoff * 2, this.maxBackoff);
-      }
+      this.backoff = Math.min(this.backoff * 2, this.maxBackoff);
       this.scheduleNext();
     }
   },
@@ -1572,71 +1324,33 @@ const Sync = {
     this.timer = setTimeout(() => this.doSync(), this.backoff);
   },
 
-  async testConnection(url, authConfig) {
-    // Helper to detect CORS errors (browser returns opaque TypeError with no status)
-    function isCorsError(err) {
-      return err instanceof TypeError && (
-        err.message.includes('Failed to fetch') ||
-        err.message.includes('NetworkError') ||
-        err.message.includes('Network request failed') ||
-        err.message.includes('CORS')
-      );
+  async testConnection(url, token) {
+    // Build auth header
+    const t = (token || '').trim();
+    let authHeader = {};
+    if (t) {
+      if (t.toLowerCase().startsWith('token ') || t.toLowerCase().startsWith('bearer ')) {
+        authHeader = { 'Authorization': t };
+      } else {
+        authHeader = { 'Authorization': 'token ' + t };
+      }
     }
 
     try {
-      // Step 1: Acquire token from auth endpoint
-      const params = new URLSearchParams();
-      params.append('grant_type', authConfig.grantType);
-      params.append('client_id', authConfig.clientId);
-      if (authConfig.clientSecret) params.append('client_secret', authConfig.clientSecret);
-      if (authConfig.scope) params.append('scope', authConfig.scope);
-      if (authConfig.grantType === 'password') {
-        if (authConfig.authUsername) params.append('username', authConfig.authUsername);
-        if (authConfig.authPassword) params.append('password', authConfig.authPassword);
-      }
-
-      let tokenResp;
-      try {
-        tokenResp = await fetch(authConfig.authUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: params.toString()
-        });
-      } catch (err) {
-        if (isCorsError(err)) {
-          return { ok: false, step: 'token', error: 'CORS blocked — the auth server must include Access-Control-Allow-Origin header for this domain' };
-        }
-        return { ok: false, step: 'token', error: err.message };
-      }
-
-      if (!tokenResp.ok) {
-        const errBody = await tokenResp.text().catch(() => '');
-        return { ok: false, step: 'token', error: `HTTP ${tokenResp.status}: ${errBody.slice(0, 150)}` };
-      }
-
-      const tokenData = await tokenResp.json();
-      if (!tokenData.access_token) {
-        return { ok: false, step: 'token', error: 'Token response missing access_token' };
-      }
-
-      // Step 2: Test API endpoint with acquired token
-      const type = (tokenData.token_type || 'Bearer').replace(/^\w/, c => c.toUpperCase());
-      let apiResp;
-      try {
-        apiResp = await fetch(url, {
-          method: 'GET',
-          headers: { 'Authorization': `${type} ${tokenData.access_token}` }
-        });
-      } catch (err) {
-        if (isCorsError(err)) {
-          return { ok: false, step: 'api', error: 'CORS blocked — the API server must include Access-Control-Allow-Origin header for this domain', tokenOk: true };
-        }
-        return { ok: false, step: 'api', error: err.message, tokenOk: true };
-      }
-
-      return { ok: true, step: 'complete', status: apiResp.status, tokenExpires: tokenData.expires_in };
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: authHeader
+      });
+      return { ok: true, status: resp.status };
     } catch (err) {
-      return { ok: false, step: 'network', error: err.message };
+      if (err instanceof TypeError && (
+        err.message.includes('Failed to fetch') ||
+        err.message.includes('NetworkError') ||
+        err.message.includes('CORS')
+      )) {
+        return { ok: false, cors: true, error: 'CORS blocked — server must allow this origin' };
+      }
+      return { ok: false, error: err.message };
     }
   },
 
@@ -1646,10 +1360,7 @@ const Sync = {
     const unsynced = all.filter(v => !v.synced).length;
     const failed = all.filter(v => v.sync_error).length;
     const lastSync = await DB.getSetting('last_sync');
-    return {
-      total: all.length, synced, unsynced, failed, lastSync,
-      tokenActive: this.token && !this.isTokenExpired()
-    };
+    return { total: all.length, synced, unsynced, failed, lastSync };
   }
 };
 
@@ -2228,32 +1939,13 @@ const App = {
     // Load settings
     const gateName = await DB.getSetting('gate_name');
     const apiUrl = await DB.getSetting('sync_api_url');
-    const authUrl = await DB.getSetting('sync_auth_url');
-    const clientId = await DB.getSetting('sync_client_id');
-    const clientSecret = await DB.getSetting('sync_client_secret');
-    const grantType = await DB.getSetting('sync_grant_type');
-    const scope = await DB.getSetting('sync_auth_scope');
-    const authUsername = await DB.getSetting('sync_auth_username');
-    const authPassword = await DB.getSetting('sync_auth_password');
+    const apiToken = await DB.getSetting('sync_api_token');
     const retention = await DB.getSetting('retention_days');
 
     if (gateName) document.getElementById('set-gate-name').value = gateName;
     if (apiUrl) document.getElementById('set-api-url').value = apiUrl;
-    if (authUrl) document.getElementById('set-auth-url').value = authUrl;
-    if (clientId) document.getElementById('set-client-id').value = clientId;
-    if (clientSecret) document.getElementById('set-client-secret').value = clientSecret;
-    if (grantType) document.getElementById('set-grant-type').value = grantType;
-    if (scope) document.getElementById('set-auth-scope').value = scope;
-    if (authUsername) document.getElementById('set-auth-username').value = authUsername;
-    if (authPassword) document.getElementById('set-auth-password').value = authPassword;
+    if (apiToken) document.getElementById('set-api-token').value = apiToken;
     if (retention) document.getElementById('set-retention').value = retention;
-
-    // Toggle resource owner fields visibility
-    const roFields = document.getElementById('set-ro-fields');
-    roFields.style.display = (document.getElementById('set-grant-type').value === 'password') ? 'block' : 'none';
-
-    // Update token UI
-    Sync.updateTokenUI();
 
     // Users
     const users = await DB.getAllUsers();
@@ -2276,7 +1968,6 @@ const App = {
     document.getElementById('sync-stats').innerHTML = `
       Total records: ${stats.total} | Synced: ${stats.synced} | Pending: ${stats.unsynced} | Failed: ${stats.failed}
       ${stats.lastSync ? `<br>Last sync: ${T.display(stats.lastSync)}` : ''}
-      <br>Token: ${stats.tokenActive ? '<span style="color:var(--success);">Active</span>' : '<span style="color:var(--text-muted);">Inactive</span>'}
     `;
   },
 
@@ -2290,92 +1981,48 @@ const App = {
 
   async saveSyncConfig() {
     const url = document.getElementById('set-api-url').value.trim();
-    const authUrl = document.getElementById('set-auth-url').value.trim();
-    const clientId = document.getElementById('set-client-id').value.trim();
-    const clientSecret = document.getElementById('set-client-secret').value.trim();
-    const grantType = document.getElementById('set-grant-type').value;
-    const scope = document.getElementById('set-auth-scope').value.trim();
-    const authUsername = document.getElementById('set-auth-username').value.trim();
-    const authPassword = document.getElementById('set-auth-password').value.trim();
+    const token = document.getElementById('set-api-token').value.trim();
 
     await DB.setSetting('sync_api_url', url);
-    await DB.setSetting('sync_auth_url', authUrl);
-    await DB.setSetting('sync_client_id', clientId);
-    await DB.setSetting('sync_client_secret', clientSecret);
-    await DB.setSetting('sync_grant_type', grantType);
-    await DB.setSetting('sync_auth_scope', scope);
-    await DB.setSetting('sync_auth_username', authUsername);
-    await DB.setSetting('sync_auth_password', authPassword);
+    await DB.setSetting('sync_api_token', token);
 
-    if (url && authUrl && clientId) {
-      Sync.config = { url, authUrl, clientId, clientSecret, grantType, scope, authUsername, authPassword };
-    } else {
-      Sync.config = null;
-    }
-
-    // Clear existing token when config changes
-    await Sync.clearToken();
+    Sync.config = (url && token) ? { url, token } : null;
     Sync.updateUI();
     this.toast('Sync configuration saved', 'success');
   },
 
   async testConnection() {
     const url = document.getElementById('set-api-url').value.trim();
-    const authUrl = document.getElementById('set-auth-url').value.trim();
-    const clientId = document.getElementById('set-client-id').value.trim();
-    const clientSecret = document.getElementById('set-client-secret').value.trim();
-    const grantType = document.getElementById('set-grant-type').value;
-    const scope = document.getElementById('set-auth-scope').value.trim();
-    const authUsername = document.getElementById('set-auth-username').value.trim();
-    const authPassword = document.getElementById('set-auth-password').value.trim();
+    const token = document.getElementById('set-api-token').value.trim();
     const el = document.getElementById('sync-test-result');
 
-    if (!url) { el.innerHTML = '<span style="color:var(--danger);">Please enter an API URL</span>'; return; }
-    if (!authUrl || !clientId) { el.innerHTML = '<span style="color:var(--danger);">Auth URL and Client ID are required</span>'; return; }
+    if (!url) { el.innerHTML = '<span style="color:var(--danger);">Please enter an API endpoint URL</span>'; return; }
+    if (!token) { el.innerHTML = '<span style="color:var(--danger);">Please enter an API token</span>'; return; }
 
-    el.innerHTML = '<span style="color:var(--info);"><i class="bi bi-arrow-repeat spin me-1"></i>Acquiring token...</span>';
+    el.innerHTML = '<span style="color:var(--info);"><i class="bi bi-arrow-repeat spin me-1"></i>Testing connection...</span>';
 
-    const result = await Sync.testConnection(url, { authUrl, clientId, clientSecret, grantType, scope, authUsername, authPassword });
+    const result = await Sync.testConnection(url, token);
 
     if (result.ok) {
-      const expiry = result.tokenExpires ? ` | Token expires in ${Math.round(result.tokenExpires / 60)}m` : '';
-      el.innerHTML = `<span style="color:var(--success);"><i class="bi bi-check-circle-fill me-1"></i>Token acquired + API reachable (HTTP ${result.status})${expiry}</span>`;
-    } else {
-      const isCors = (result.error || '').includes('CORS');
+      el.innerHTML = `<span style="color:var(--success);"><i class="bi bi-check-circle-fill me-1"></i>Connection successful (HTTP ${result.status})</span>`;
+    } else if (result.cors) {
       const origin = window.location.origin;
-
-      if (isCors) {
-        const server = result.step === 'token' ? 'auth' : 'API';
-        el.innerHTML = `
-          <div style="color:var(--danger);margin-bottom:0.5rem;">
-            <i class="bi bi-shield-exclamation me-1"></i><strong>CORS Policy Blocked</strong> (${server} server)
-          </div>
-          <div style="font-size:0.8rem;color:var(--text-secondary);line-height:1.5;">
-            The ${server} server at <code style="color:var(--accent);">${result.step === 'token' ? authUrl : url}</code>
-            must return CORS headers allowing this origin.<br><br>
-            <strong>For Frappe/ERPNext:</strong> Add to <code>site_config.json</code>:<br>
-            <code style="color:var(--accent);display:block;margin:0.3rem 0;padding:0.4rem 0.6rem;background:var(--bg-input);border-radius:4px;">
-              "allow_cors": ["${origin}"]
-            </code>
-            Then restart: <code style="color:var(--accent);">bench restart</code>
-            ${result.tokenOk ? '<br><br><span style="color:var(--success);"><i class="bi bi-check-circle me-1"></i>Token auth succeeded — only the API endpoint needs CORS.</span>' : ''}
-          </div>
-        `;
-      } else {
-        const step = result.step === 'token' ? 'Token auth failed' : result.step === 'api' ? 'API unreachable' : 'Network error';
-        el.innerHTML = `<span style="color:var(--danger);"><i class="bi bi-x-circle-fill me-1"></i>${step}: ${result.error}</span>`;
-      }
-    }
-  },
-
-  async refreshToken() {
-    if (!Sync.config) { this.toast('No sync configured', 'warning'); return; }
-    try {
-      await Sync.acquireToken();
-      this.toast('Token refreshed', 'success');
-      this.refreshSettings();
-    } catch (err) {
-      this.toast('Token refresh failed: ' + err.message, 'error');
+      el.innerHTML = `
+        <div style="color:var(--danger);margin-bottom:0.5rem;">
+          <i class="bi bi-shield-exclamation me-1"></i><strong>CORS Policy Blocked</strong>
+        </div>
+        <div style="font-size:0.8rem;color:var(--text-secondary);line-height:1.5;">
+          The server at <code style="color:var(--accent);">${url}</code>
+          must return CORS headers allowing this origin.<br><br>
+          <strong>For Frappe/ERPNext:</strong> Add to <code>site_config.json</code>:<br>
+          <code style="color:var(--accent);display:block;margin:0.3rem 0;padding:0.4rem 0.6rem;background:var(--bg-input);border-radius:4px;">
+            "allow_cors": ["${origin}"]
+          </code>
+          Then restart: <code style="color:var(--accent);">bench restart</code>
+        </div>
+      `;
+    } else {
+      el.innerHTML = `<span style="color:var(--danger);"><i class="bi bi-x-circle-fill me-1"></i>Connection failed: ${result.error}</span>`;
     }
   },
 
@@ -2408,9 +2055,7 @@ const App = {
     const data = {
       device_id: getDeviceId(),
       timestamp: T.now(),
-      config: Sync.config ? { url: Sync.config.url, authUrl: Sync.config.authUrl, clientId: Sync.config.clientId, grantType: Sync.config.grantType, hasSecret: !!Sync.config.clientSecret } : null,
-      tokenActive: Sync.token && !Sync.isTokenExpired(),
-      tokenExpiresAt: Sync.token ? new Date(Sync.token.expires_at).toISOString() : null,
+      config: Sync.config ? { url: Sync.config.url, hasToken: !!Sync.config.token } : null,
       online: Sync.isOnline,
       totalRecords: all.length,
       syncedCount: all.filter(v => v.synced).length,
@@ -2531,11 +2176,6 @@ const App = {
     // Custom date range
     document.getElementById('log-date-from').addEventListener('change', () => this.refreshLogs());
     document.getElementById('log-date-to').addEventListener('change', () => this.refreshLogs());
-
-    // Grant type toggle
-    document.getElementById('set-grant-type').addEventListener('change', (e) => {
-      document.getElementById('set-ro-fields').style.display = e.target.value === 'password' ? 'block' : 'none';
-    });
   },
 
   // ─── TOAST ───

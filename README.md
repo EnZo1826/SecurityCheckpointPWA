@@ -63,62 +63,28 @@ Guard accounts can only access: Dashboard, Check-In, Search/Check-Out, Logs, and
 
 ### Online Database Sync
 
-Navigate to **Settings > Online Database Sync** to connect to a REST API backend using OAuth2 token authentication.
+Navigate to **Settings > Online Database Sync** to connect to a REST API backend.
 
 #### Configuration Fields
 
-1. **REST API Base URL**: Your data endpoint (e.g., `https://api.example.com/visitors`)
-2. **Auth Token URL**: OAuth2 token endpoint (e.g., `https://auth.example.com/oauth/token`)
-3. **Client ID**: Your OAuth2 client identifier
-4. **Client Secret**: Your OAuth2 client secret
-5. **Grant Type**:
-   - **Client Credentials** (default): Machine-to-machine authentication, no user context
-   - **Resource Owner Password**: Requires username/password fields (for legacy systems)
-6. **Scope** (optional): Space-separated list of scopes (e.g., `read write sync`)
-7. **Test Connection**: Acquires a token and verifies the API endpoint is reachable
-8. **Save Config**: Persists all settings locally (clears any existing token)
+1. **REST API Endpoint**: Your Frappe API endpoint (e.g., `https://example.com/api/method/app.api.visitors.post_visitor`)
+2. **API Token**: Static authentication token in Frappe format: `token api_key:api_secret`
+3. **Test Connection**: Verifies the endpoint is reachable and the token is accepted
+4. **Save**: Persists settings locally
 
-#### Token Lifecycle
+#### Generating a Frappe API Token
 
-- Tokens are acquired automatically before sync operations
-- Tokens are cached locally and refreshed proactively at 75% of their lifetime
-- If a sync request returns HTTP 401, the engine acquires a fresh token and retries once
-- If a `refresh_token` is provided by the auth server, it is used for renewal before falling back to a full credential exchange
-- Token status (active/expired/remaining time) is displayed in the settings panel
-- The "Refresh Token" button forces immediate re-acquisition
-
-#### Token Request Format
-
-The app sends a standard OAuth2 token request:
-
-```
-POST /oauth/token
-Content-Type: application/x-www-form-urlencoded
-
-grant_type=client_credentials
-&client_id=your-client-id
-&client_secret=your-client-secret
-&scope=read+write
-```
-
-Expected response:
-
-```json
-{
-  "access_token": "eyJhbGciOi...",
-  "token_type": "Bearer",
-  "expires_in": 3600,
-  "refresh_token": "dGhpcyBpcyBh..."
-}
-```
+1. In your Frappe/ERPNext site, go to **Settings > API Access** (or generate keys for a user)
+2. The format is: `token <api_key>:<api_secret>`
+3. Example: `token ad389f7e50d0a46:bc87cd51c070794`
 
 #### API Request Format
 
-Once authenticated, sync requests include the token as a Bearer header:
+Sync requests POST visitor records with the token in the Authorization header:
 
 ```
-POST /visitors
-Authorization: Bearer eyJhbGciOi...
+POST /api/method/safenetops.api.visitors.post_visitor
+Authorization: token ad389f7e50d0a46:bc87cd51c070794
 Content-Type: application/json
 
 {
@@ -148,17 +114,16 @@ Your API should:
 - Use `version` for conflict resolution (highest version wins)
 
 #### Sync Behavior
-- **Token-first**: A valid access token is acquired before any sync attempt
 - **Auto-sync**: When online, unsynced records sync automatically with exponential backoff
-- **401 retry**: If the API returns 401, the engine re-acquires a token and retries once
 - **Manual sync**: "Sync Now" button in Admin Settings
 - **Retry failed**: Clears sync errors and re-queues failed records
-- **Diagnostics**: Exports a JSON file with sync status, token state, and failed records
-- **Never blocks**: Gate operations always work regardless of sync or token status
+- **CORS detection**: If the server blocks requests due to CORS, the app stops retrying and displays actionable guidance
+- **Diagnostics**: Exports a JSON file with sync status and failed records
+- **Never blocks**: Gate operations always work regardless of sync status
 
 #### CORS Configuration (Required)
 
-Since the PWA runs in a browser on a different origin than your API server, the server must return CORS headers. Without this, the browser will block all sync and token requests.
+Since the PWA runs in a browser on a different origin than your Frappe server, the server **must** return CORS headers. Without this, the browser will block all sync requests.
 
 **For Frappe/ERPNext**, add the PWA origin to `site_config.json`:
 
