@@ -1017,10 +1017,10 @@ const DB = {
         if (!db.objectStoreNames.contains('visitors')) {
           const store = db.createObjectStore('visitors', { keyPath: 'id' });
           store.createIndex('status', 'status', { unique: false });
-          store.createIndex('timeIn', 'timeIn', { unique: false });
+          store.createIndex('time_in', 'time_in', { unique: false });
           store.createIndex('synced', 'synced', { unique: false });
-          store.createIndex('name', 'name', { unique: false });
-          store.createIndex('cellNo', 'cellNo', { unique: false });
+          store.createIndex('visitor_name', 'visitor_name', { unique: false });
+          store.createIndex('cell_no', 'cell_no', { unique: false });
         }
         if (!db.objectStoreNames.contains('users')) {
           db.createObjectStore('users', { keyPath: 'username' });
@@ -1079,7 +1079,7 @@ const DB = {
   async getByDateRange(start, end) {
     return new Promise((resolve, reject) => {
       const store = this._tx('visitors');
-      const idx = store.index('timeIn');
+      const idx = store.index('time_in');
       const range = IDBKeyRange.bound(start, end);
       const req = idx.getAll(range);
       req.onsuccess = () => resolve(req.result || []);
@@ -1097,11 +1097,11 @@ const DB = {
     });
   },
 
-  async findActive(name, cellNo) {
+  async findActive(name, cell_no) {
     const onSite = await this.getOnSite();
     return onSite.find(v =>
-      v.name.toLowerCase() === name.toLowerCase() &&
-      v.cellNo.replace(/\s/g, '') === cellNo.replace(/\s/g, '')
+      v.visitor_name.toLowerCase() === name.toLowerCase() &&
+      v.cell_no.replace(/\s/g, '') === cell_no.replace(/\s/g, '')
     );
   },
 
@@ -1110,10 +1110,10 @@ const DB = {
     const q = query.toLowerCase().trim();
     if (!q) return all;
     return all.filter(v =>
-      v.name.toLowerCase().includes(q) ||
-      v.cellNo.includes(q) ||
+      v.visitor_name.toLowerCase().includes(q) ||
+      v.cell_no.includes(q) ||
       (v.company || '').toLowerCase().includes(q) ||
-      (v.vehicleReg || '').toLowerCase().includes(q)
+      (v.vehicle_reg || '').toLowerCase().includes(q)
     );
   },
 
@@ -1121,10 +1121,10 @@ const DB = {
     const q = query.toLowerCase().trim();
     if (!q) return records;
     return records.filter(v =>
-      v.name.toLowerCase().includes(q) ||
-      v.cellNo.includes(q) ||
+      v.visitor_name.toLowerCase().includes(q) ||
+      v.cell_no.includes(q) ||
       (v.company || '').toLowerCase().includes(q) ||
-      (v.vehicleReg || '').toLowerCase().includes(q)
+      (v.vehicle_reg || '').toLowerCase().includes(q)
     );
   },
 
@@ -1132,7 +1132,7 @@ const DB = {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
     const all = await this.getAllVisitors();
-    const toDelete = all.filter(v => v.status === 'EXITED' && new Date(v.timeIn) < cutoff);
+    const toDelete = all.filter(v => v.status === 'EXITED' && new Date(v.time_in) < cutoff);
     const store = this._tx('visitors', 'readwrite');
     let count = 0;
     for (const v of toDelete) { store.delete(v.id); count++; }
@@ -1262,17 +1262,17 @@ const Sync = {
 
           if (resp.ok) {
             record.synced = true;
-            record.syncError = null;
-            record.updatedAt = T.now();
+            record.sync_error = null;
+            record.updated_at = T.now();
             await DB.addVisitor(record);
           } else {
-            record.syncError = `HTTP ${resp.status}`;
-            record.updatedAt = T.now();
+            record.sync_error = `HTTP ${resp.status}`;
+            record.updated_at = T.now();
             await DB.addVisitor(record);
           }
         } catch (err) {
-          record.syncError = err.message;
-          record.updatedAt = T.now();
+          record.sync_error = err.message;
+          record.updated_at = T.now();
           await DB.addVisitor(record);
         }
       }
@@ -1319,7 +1319,7 @@ const Sync = {
     const all = await DB.getAllVisitors();
     const synced = all.filter(v => v.synced).length;
     const unsynced = all.filter(v => !v.synced).length;
-    const failed = all.filter(v => v.syncError).length;
+    const failed = all.filter(v => v.sync_error).length;
     const lastSync = await DB.getSetting('last_sync');
     return { total: all.length, synced, unsynced, failed, lastSync };
   }
@@ -1332,13 +1332,13 @@ const Sync = {
 const Export = {
   formatRecords(records) {
     return records.map(r => ({
-      'Name': r.name,
-      'Cell No': r.cellNo,
+      'Name': r.visitor_name,
+      'Cell No': r.cell_no,
       'Company': r.company,
-      'Vehicle Reg': r.vehicleReg || '',
-      'Time In': T.display(r.timeIn),
-      'Time Out': r.timeOut ? T.display(r.timeOut) : '',
-      'Total Time': r.timeOut ? T.duration(r.timeIn, r.timeOut) : (r.status === 'ON_SITE' ? 'On Site' : ''),
+      'Vehicle Reg': r.vehicle_reg || '',
+      'Time In': T.display(r.time_in),
+      'Time Out': r.time_out ? T.display(r.time_out) : '',
+      'Total Time': r.time_out ? T.duration(r.time_in, r.time_out) : (r.status === 'ON_SITE' ? 'On Site' : ''),
       'Status': r.status,
       'Notes': r.notes || ''
     }));
@@ -1421,7 +1421,7 @@ const App = {
   async ensureDefaultAdmin() {
     const admin = await DB.getUser('admin');
     if (!admin) {
-      await DB.putUser({ username: 'admin', pin: '1234', role: 'admin', createdAt: T.now() });
+      await DB.putUser({ username: 'admin', pin: '1234', role: 'admin', created_at: T.now() });
     }
   },
 
@@ -1542,7 +1542,7 @@ const App = {
 
     const exits = todayLogs.filter(v => v.status === 'EXITED');
     const avgMins = exits.length > 0
-      ? Math.round(exits.reduce((sum, v) => sum + (v.totalMinutesOnSite || 0), 0) / exits.length)
+      ? Math.round(exits.reduce((sum, v) => sum + (v.total_minutes_on_site || 0), 0) / exits.length)
       : 0;
 
     document.getElementById('stat-onsite').textContent = onSite.length;
@@ -1557,17 +1557,17 @@ const App = {
       return;
     }
 
-    // Sort by timeIn descending
-    onSite.sort((a, b) => new Date(b.timeIn) - new Date(a.timeIn));
+    // Sort by time_in descending
+    onSite.sort((a, b) => new Date(b.time_in) - new Date(a.time_in));
 
     list.innerHTML = onSite.map(v => `
       <div class="visitor-item" onclick="App.showCheckoutPrompt('${v.id}')">
         <div class="visitor-info">
-          <div class="v-name">${this.esc(v.name)}</div>
+          <div class="v-name">${this.esc(v.visitor_name)}</div>
           <div class="v-meta">
             <span><i class="bi bi-building"></i> ${this.esc(v.company)}</span>
-            <span><i class="bi bi-clock"></i> ${T.formatMins(T.minsOnSite(v.timeIn))}</span>
-            ${v.vehicleReg ? `<span><i class="bi bi-car-front"></i> ${this.esc(v.vehicleReg)}</span>` : ''}
+            <span><i class="bi bi-clock"></i> ${T.formatMins(T.minsOnSite(v.time_in))}</span>
+            ${v.vehicle_reg ? `<span><i class="bi bi-car-front"></i> ${this.esc(v.vehicle_reg)}</span>` : ''}
           </div>
         </div>
         <button class="btn btn-danger-soft btn-sm" onclick="event.stopPropagation(); App.showCheckoutPrompt('${v.id}')">
@@ -1586,30 +1586,30 @@ const App = {
     e.preventDefault();
 
     const name = document.getElementById('ci-name').value.trim();
-    const cellNo = document.getElementById('ci-cell').value.trim();
+    const cell_no = document.getElementById('ci-cell').value.trim();
     const company = document.getElementById('ci-company').value.trim();
-    const vehicleReg = document.getElementById('ci-vehicle').value.trim();
+    const vehicle_reg = document.getElementById('ci-vehicle').value.trim();
     const notes = document.getElementById('ci-notes').value.trim();
 
-    if (!name || !cellNo || !company) {
+    if (!name || !cell_no || !company) {
       this.toast('Please fill in all required fields', 'error');
       return;
     }
 
     // Check for active record
-    const existing = await DB.findActive(name, cellNo);
+    const existing = await DB.findActive(name, cell_no);
     if (existing) {
       this.toast('This person is already on site!', 'warning');
       return;
     }
 
-    this.pendingCheckin = { name, cellNo, company, vehicleReg, notes };
+    this.pendingCheckin = { visitor_name: name, cell_no, company, vehicle_reg, notes };
 
     document.getElementById('confirm-checkin-body').innerHTML = `
       <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${this.esc(name)}</span></div>
-      <div class="detail-row"><span class="detail-label">Cell</span><span class="detail-value">${this.esc(cellNo)}</span></div>
+      <div class="detail-row"><span class="detail-label">Cell</span><span class="detail-value">${this.esc(cell_no)}</span></div>
       <div class="detail-row"><span class="detail-label">Company</span><span class="detail-value">${this.esc(company)}</span></div>
-      ${vehicleReg ? `<div class="detail-row"><span class="detail-label">Vehicle</span><span class="detail-value">${this.esc(vehicleReg)}</span></div>` : ''}
+      ${vehicle_reg ? `<div class="detail-row"><span class="detail-label">Vehicle</span><span class="detail-value">${this.esc(vehicle_reg)}</span></div>` : ''}
       <div class="detail-row"><span class="detail-label">Time In</span><span class="detail-value">${T.displayTime(T.now())}</span></div>
     `;
 
@@ -1622,20 +1622,20 @@ const App = {
 
     const record = {
       id: uuid(),
-      name: d.name,
-      cellNo: d.cellNo,
+      visitor_name: d.visitor_name,
+      cell_no: d.cell_no,
       company: d.company,
-      vehicleReg: d.vehicleReg || '',
-      timeIn: T.now(),
-      timeOut: null,
+      vehicle_reg: d.vehicle_reg || '',
+      time_in: T.now(),
+      time_out: null,
       status: 'ON_SITE',
-      totalMinutesOnSite: null,
+      total_minutes_on_site: null,
       notes: d.notes || '',
-      createdAt: T.now(),
-      updatedAt: T.now(),
-      deviceId: getDeviceId(),
+      created_at: T.now(),
+      updated_at: T.now(),
+      device_id: getDeviceId(),
       synced: false,
-      syncError: null,
+      sync_error: null,
       version: 1
     };
 
@@ -1643,7 +1643,7 @@ const App = {
     bootstrap.Modal.getInstance(document.getElementById('confirmCheckinModal'))?.hide();
     this.pendingCheckin = null;
     this.resetCheckinForm();
-    this.toast(`${d.name} checked in successfully`, 'success');
+    this.toast(`${d.visitor_name} checked in successfully`, 'success');
 
     // Trigger sync if online
     if (Sync.isOnline && Sync.config) Sync.startSync();
@@ -1658,12 +1658,12 @@ const App = {
     }
 
     this.pendingCheckout = record;
-    const duration = T.formatMins(T.minsOnSite(record.timeIn));
+    const duration = T.formatMins(T.minsOnSite(record.time_in));
 
     document.getElementById('confirm-checkout-body').innerHTML = `
-      <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${this.esc(record.name)}</span></div>
+      <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${this.esc(record.visitor_name)}</span></div>
       <div class="detail-row"><span class="detail-label">Company</span><span class="detail-value">${this.esc(record.company)}</span></div>
-      <div class="detail-row"><span class="detail-label">Time In</span><span class="detail-value">${T.display(record.timeIn)}</span></div>
+      <div class="detail-row"><span class="detail-label">Time In</span><span class="detail-value">${T.display(record.time_in)}</span></div>
       <div class="detail-row"><span class="detail-label">Time Out</span><span class="detail-value">${T.displayTime(T.now())}</span></div>
       <div class="time-display mt-3">${duration} on site</div>
     `;
@@ -1675,18 +1675,18 @@ const App = {
     if (!this.pendingCheckout) return;
     const record = this.pendingCheckout;
 
-    record.timeOut = T.now();
+    record.time_out = T.now();
     record.status = 'EXITED';
-    record.totalMinutesOnSite = T.durationMins(record.timeIn, record.timeOut);
-    record.updatedAt = T.now();
+    record.total_minutes_on_site = T.durationMins(record.time_in, record.time_out);
+    record.updated_at = T.now();
     record.synced = false;
     record.version = (record.version || 1) + 1;
 
     await DB.addVisitor(record);
     bootstrap.Modal.getInstance(document.getElementById('confirmCheckoutModal'))?.hide();
 
-    const name = record.name;
-    const dur = T.duration(record.timeIn, record.timeOut);
+    const name = record.visitor_name;
+    const dur = T.duration(record.time_in, record.time_out);
     this.pendingCheckout = null;
     this.toast(`${name} checked out (${dur})`, 'success');
     this.refreshDashboard();
@@ -1710,11 +1710,11 @@ const App = {
     container.innerHTML = results.map(v => `
       <div class="visitor-item">
         <div class="visitor-info">
-          <div class="v-name">${this.esc(v.name)}</div>
+          <div class="v-name">${this.esc(v.visitor_name)}</div>
           <div class="v-meta">
-            <span><i class="bi bi-telephone"></i> ${this.esc(v.cellNo)}</span>
+            <span><i class="bi bi-telephone"></i> ${this.esc(v.cell_no)}</span>
             <span><i class="bi bi-building"></i> ${this.esc(v.company)}</span>
-            <span><i class="bi bi-clock"></i> ${T.formatMins(T.minsOnSite(v.timeIn))}</span>
+            <span><i class="bi bi-clock"></i> ${T.formatMins(T.minsOnSite(v.time_in))}</span>
           </div>
         </div>
         <button class="btn btn-danger-soft btn-sm" onclick="App.showCheckoutPrompt('${v.id}')">
@@ -1746,7 +1746,7 @@ const App = {
     const searchQuery = document.getElementById('log-search')?.value || '';
     if (searchQuery) records = await DB.searchAll(searchQuery, records);
 
-    records.sort((a, b) => new Date(b.timeIn) - new Date(a.timeIn));
+    records.sort((a, b) => new Date(b.time_in) - new Date(a.time_in));
 
     const container = document.getElementById('logs-list');
     if (records.length === 0) {
@@ -1757,11 +1757,11 @@ const App = {
     container.innerHTML = records.map(v => `
       <div class="visitor-item" onclick="App.showVisitorDetail('${v.id}')">
         <div class="visitor-info">
-          <div class="v-name">${this.esc(v.name)}</div>
+          <div class="v-name">${this.esc(v.visitor_name)}</div>
           <div class="v-meta">
             <span><i class="bi bi-building"></i> ${this.esc(v.company)}</span>
-            <span><i class="bi bi-clock"></i> ${T.displayTime(v.timeIn)}</span>
-            <span>${v.timeOut ? T.duration(v.timeIn, v.timeOut) : 'On Site'}</span>
+            <span><i class="bi bi-clock"></i> ${T.displayTime(v.time_in)}</span>
+            <span>${v.time_out ? T.duration(v.time_in, v.time_out) : 'On Site'}</span>
             ${!v.synced ? '<span style="color:var(--warning);"><i class="bi bi-cloud-slash"></i></span>' : ''}
           </div>
         </div>
@@ -1778,17 +1778,17 @@ const App = {
 
     const body = document.getElementById('visitor-detail-body');
     body.innerHTML = `
-      <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${this.esc(v.name)}</span></div>
-      <div class="detail-row"><span class="detail-label">Cell No</span><span class="detail-value">${this.esc(v.cellNo)}</span></div>
+      <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${this.esc(v.visitor_name)}</span></div>
+      <div class="detail-row"><span class="detail-label">Cell No</span><span class="detail-value">${this.esc(v.cell_no)}</span></div>
       <div class="detail-row"><span class="detail-label">Company</span><span class="detail-value">${this.esc(v.company)}</span></div>
-      <div class="detail-row"><span class="detail-label">Vehicle Reg</span><span class="detail-value">${v.vehicleReg || '--'}</span></div>
-      <div class="detail-row"><span class="detail-label">Time In</span><span class="detail-value">${T.display(v.timeIn)}</span></div>
-      <div class="detail-row"><span class="detail-label">Time Out</span><span class="detail-value">${v.timeOut ? T.display(v.timeOut) : '--'}</span></div>
-      <div class="detail-row"><span class="detail-label">Duration</span><span class="detail-value">${v.timeOut ? T.duration(v.timeIn, v.timeOut) : (v.status === 'ON_SITE' ? T.formatMins(T.minsOnSite(v.timeIn)) + ' (ongoing)' : '--')}</span></div>
+      <div class="detail-row"><span class="detail-label">Vehicle Reg</span><span class="detail-value">${v.vehicle_reg || '--'}</span></div>
+      <div class="detail-row"><span class="detail-label">Time In</span><span class="detail-value">${T.display(v.time_in)}</span></div>
+      <div class="detail-row"><span class="detail-label">Time Out</span><span class="detail-value">${v.time_out ? T.display(v.time_out) : '--'}</span></div>
+      <div class="detail-row"><span class="detail-label">Duration</span><span class="detail-value">${v.time_out ? T.duration(v.time_in, v.time_out) : (v.status === 'ON_SITE' ? T.formatMins(T.minsOnSite(v.time_in)) + ' (ongoing)' : '--')}</span></div>
       <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value"><span class="visitor-status ${v.status === 'ON_SITE' ? 'status-onsite' : 'status-exited'}">${v.status}</span></span></div>
       <div class="detail-row"><span class="detail-label">Notes</span><span class="detail-value">${v.notes || '--'}</span></div>
       <div class="detail-row"><span class="detail-label">Synced</span><span class="detail-value">${v.synced ? '<span style="color:var(--success);">Yes</span>' : '<span style="color:var(--warning);">No</span>'}</span></div>
-      ${v.syncError ? `<div class="detail-row"><span class="detail-label">Sync Error</span><span class="detail-value" style="color:var(--danger);">${this.esc(v.syncError)}</span></div>` : ''}
+      ${v.sync_error ? `<div class="detail-row"><span class="detail-label">Sync Error</span><span class="detail-value" style="color:var(--danger);">${this.esc(v.sync_error)}</span></div>` : ''}
     `;
 
     const footer = document.getElementById('visitor-detail-footer');
@@ -1811,12 +1811,12 @@ const App = {
     if (!v) return;
 
     document.getElementById('edit-record-id').value = v.id;
-    document.getElementById('edit-name').value = v.name;
-    document.getElementById('edit-cell').value = v.cellNo;
+    document.getElementById('edit-name').value = v.visitor_name;
+    document.getElementById('edit-cell').value = v.cell_no;
     document.getElementById('edit-company').value = v.company;
-    document.getElementById('edit-vehicle').value = v.vehicleReg || '';
-    document.getElementById('edit-time-in').value = T.localISO(new Date(v.timeIn));
-    document.getElementById('edit-time-out').value = v.timeOut ? T.localISO(new Date(v.timeOut)) : '';
+    document.getElementById('edit-vehicle').value = v.vehicle_reg || '';
+    document.getElementById('edit-time-in').value = T.localISO(new Date(v.time_in));
+    document.getElementById('edit-time-out').value = v.time_out ? T.localISO(new Date(v.time_out)) : '';
     document.getElementById('edit-notes').value = v.notes || '';
 
     new bootstrap.Modal(document.getElementById('editTimeModal')).show();
@@ -1827,23 +1827,23 @@ const App = {
     const v = await DB.getVisitor(id);
     if (!v) return;
 
-    v.name = document.getElementById('edit-name').value.trim();
-    v.cellNo = document.getElementById('edit-cell').value.trim();
+    v.visitor_name = document.getElementById('edit-name').value.trim();
+    v.cell_no = document.getElementById('edit-cell').value.trim();
     v.company = document.getElementById('edit-company').value.trim();
-    v.vehicleReg = document.getElementById('edit-vehicle').value.trim();
+    v.vehicle_reg = document.getElementById('edit-vehicle').value.trim();
     v.notes = document.getElementById('edit-notes').value.trim();
 
-    const timeInVal = document.getElementById('edit-time-in').value;
-    const timeOutVal = document.getElementById('edit-time-out').value;
+    const time_inVal = document.getElementById('edit-time-in').value;
+    const time_outVal = document.getElementById('edit-time-out').value;
 
-    if (timeInVal) v.timeIn = new Date(timeInVal).toISOString();
-    if (timeOutVal) {
-      v.timeOut = new Date(timeOutVal).toISOString();
+    if (time_inVal) v.time_in = new Date(time_inVal).toISOString();
+    if (time_outVal) {
+      v.time_out = new Date(time_outVal).toISOString();
       v.status = 'EXITED';
-      v.totalMinutesOnSite = T.durationMins(v.timeIn, v.timeOut);
+      v.total_minutes_on_site = T.durationMins(v.time_in, v.time_out);
     }
 
-    v.updatedAt = T.now();
+    v.updated_at = T.now();
     v.synced = false;
     v.version = (v.version || 1) + 1;
 
@@ -1979,8 +1979,8 @@ const App = {
     const all = await DB.getAllVisitors();
     let count = 0;
     for (const v of all) {
-      if (v.syncError) {
-        v.syncError = null;
+      if (v.sync_error) {
+        v.sync_error = null;
         v.synced = false;
         await DB.addVisitor(v);
         count++;
@@ -1992,9 +1992,9 @@ const App = {
 
   async exportSyncDiag() {
     const all = await DB.getAllVisitors();
-    const failed = all.filter(v => v.syncError);
+    const failed = all.filter(v => v.sync_error);
     const data = {
-      deviceId: getDeviceId(),
+      device_id: getDeviceId(),
       timestamp: T.now(),
       config: Sync.config ? { url: Sync.config.url, hasKey: !!Sync.config.key } : null,
       online: Sync.isOnline,
@@ -2002,7 +2002,7 @@ const App = {
       syncedCount: all.filter(v => v.synced).length,
       unsyncedCount: all.filter(v => !v.synced).length,
       failedCount: failed.length,
-      failedRecords: failed.map(v => ({ id: v.id, name: v.name, error: v.syncError }))
+      failedRecords: failed.map(v => ({ id: v.id, visitor_name: v.visitor_name, error: v.sync_error }))
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -2024,7 +2024,7 @@ const App = {
     const existing = await DB.getUser(username);
     if (existing) { this.toast('Username already exists', 'error'); return; }
 
-    await DB.putUser({ username, pin, role: 'guard', createdAt: T.now() });
+    await DB.putUser({ username, pin, role: 'guard', created_at: T.now() });
     bootstrap.Modal.getInstance(document.getElementById('addUserModal'))?.hide();
     document.getElementById('new-user-name').value = '';
     document.getElementById('new-user-pin').value = '';
