@@ -156,6 +156,34 @@ Your API should:
 - **Diagnostics**: Exports a JSON file with sync status, token state, and failed records
 - **Never blocks**: Gate operations always work regardless of sync or token status
 
+#### CORS Configuration (Required)
+
+Since the PWA runs in a browser on a different origin than your API server, the server must return CORS headers. Without this, the browser will block all sync and token requests.
+
+**For Frappe/ERPNext**, add the PWA origin to `site_config.json`:
+
+```json
+{
+  "allow_cors": ["https://your-pwa-domain.vercel.app"]
+}
+```
+
+Then restart the server:
+
+```bash
+bench restart
+```
+
+**For other backends**, ensure the server returns these headers on all responses (including preflight OPTIONS):
+
+```
+Access-Control-Allow-Origin: https://your-pwa-domain.vercel.app
+Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Authorization
+```
+
+The "Test Connection" button will detect CORS issues and display specific guidance if blocked.
+
 ### Data Management
 
 - **Retention Period**: Set how long exited records are kept (30-365 days)
