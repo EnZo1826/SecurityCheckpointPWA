@@ -41,7 +41,7 @@ On the device (phone/tablet):
 |----------|------|-------|
 | admin    | 1234 | Admin |
 
-**Change the admin PIN immediately after first login.**
+**The app now forces a PIN change on first admin login. New PINs must be at least 6 characters.**
 
 ---
 
@@ -55,7 +55,8 @@ Navigate to **Settings > Branding** to set:
 ### User Management
 
 Navigate to **Settings > User Management**:
-- **Add Guard**: Create guard accounts with username + PIN (minimum 4 characters)
+- **Add Guard**: Create guard accounts with username + PIN (minimum 6 characters)
+- **Username policy**: 3-24 characters, lowercase letters/numbers plus `.`, `_`, `-`
 - **Reset PIN**: Click the key icon next to any user to reset their PIN
 - **Remove Guard**: Click the trash icon (cannot remove the admin account)
 

@@ -1,12 +1,16 @@
-const CACHE_NAME = 'security-checkpoint-v1.1.0';
+const CACHE_NAME = 'security-checkpoint-v1.3.1';
 const ASSETS = [
   './',
   './index.html',
+  './app.js',
+  './styles.css',
+  './vendor/bootstrap.bundle.min.js',
+  './vendor/xlsx.full.min.js',
   './manifest.json',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
-  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css',
-  'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js'
+  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/fonts/bootstrap-icons.woff2',
+  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/fonts/bootstrap-icons.woff'
 ];
 
 // Domains and paths that should NEVER be intercepted by the service worker.
@@ -26,8 +30,14 @@ function shouldPassthrough(url) {
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const settled = await Promise.allSettled(
+        ASSETS.map((asset) => cache.add(asset))
+      );
+      const failed = settled.filter((r) => r.status === 'rejected').length;
+      if (failed > 0) {
+        console.warn(`SW precache completed with ${failed} failures`);
+      }
     })
   );
   self.skipWaiting();
