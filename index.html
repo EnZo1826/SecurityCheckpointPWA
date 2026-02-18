@@ -1,8 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: https:; connect-src 'self' https:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'">
 <meta name="description" content="Security Checkpoint - Gate Visitor Logging PWA">
 <meta name="theme-color" content="#f59e0b">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,456 +13,18 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230a0e17'/%3E%3Ccircle cx='16' cy='11' r='5' fill='none' stroke='%23f59e0b' stroke-width='2'/%3E%3Cpath d='M8 23c0-4.4 3.6-8 8-8s8 3.6 8 8' fill='none' stroke='%23f59e0b' stroke-width='2'/%3E%3C/svg%3E">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-<style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
-
-:root {
-  --bg-primary: #0a0e17;
-  --bg-secondary: #111827;
-  --bg-card: #1a2234;
-  --bg-input: #0f1623;
-  --accent: #f59e0b;
-  --accent-dim: rgba(245, 158, 11, 0.15);
-  --accent-hover: #d97706;
-  --success: #10b981;
-  --danger: #ef4444;
-  --warning: #f59e0b;
-  --info: #3b82f6;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --border: #1e293b;
-  --border-accent: rgba(245, 158, 11, 0.3);
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-  --font-display: 'JetBrains Mono', monospace;
-  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --transition: 0.2s ease;
-}
-
-* { box-sizing: border-box; }
-
-html, body {
-  margin: 0; padding: 0;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: var(--font-body);
-  min-height: 100vh;
-  overflow-x: hidden;
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* ─── SCROLLBAR ─── */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--bg-secondary); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-/* ─── APP SHELL ─── */
-#app-loading {
-  position: fixed; inset: 0; z-index: 9999;
-  background: var(--bg-primary);
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 1.5rem;
-  transition: opacity 0.4s ease;
-}
-#app-loading.fade-out { opacity: 0; pointer-events: none; }
-#app-loading .spinner {
-  width: 48px; height: 48px;
-  border: 3px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-#app-loading .brand {
-  font-family: var(--font-display);
-  font-size: 1.2rem; color: var(--accent);
-  letter-spacing: 2px; text-transform: uppercase;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ─── LOGIN SCREEN ─── */
-#login-screen {
-  min-height: 100vh;
-  display: flex; align-items: center; justify-content: center;
-  padding: 1rem;
-  background: linear-gradient(135deg, var(--bg-primary) 0%, #0d1321 50%, #111827 100%);
-}
-.login-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 2.5rem 2rem;
-  width: 100%; max-width: 380px;
-  box-shadow: var(--shadow);
-}
-.login-card .logo-icon {
-  width: 64px; height: 64px;
-  background: var(--accent-dim);
-  border: 2px solid var(--accent);
-  border-radius: 16px;
-  display: flex; align-items: center; justify-content: center;
-  margin: 0 auto 1.5rem;
-  font-size: 1.8rem; color: var(--accent);
-}
-.login-card h1 {
-  font-family: var(--font-display);
-  font-size: 1.3rem; text-align: center;
-  letter-spacing: 1.5px; text-transform: uppercase;
-  margin-bottom: 0.25rem;
-}
-.login-card .subtitle {
-  text-align: center; color: var(--text-muted);
-  font-size: 0.85rem; margin-bottom: 2rem;
-}
-
-/* ─── MAIN APP ─── */
-#main-app { display: none; min-height: 100vh; padding-bottom: 80px; }
-
-/* ─── TOP BAR ─── */
-.top-bar {
-  position: sticky; top: 0; z-index: 100;
-  background: rgba(10, 14, 23, 0.92);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-  padding: 0.75rem 1rem;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.top-bar .brand-sm {
-  font-family: var(--font-display);
-  font-size: 0.85rem; color: var(--accent);
-  letter-spacing: 1.5px; text-transform: uppercase;
-  display: flex; align-items: center; gap: 0.5rem;
-}
-.top-bar .brand-sm i { font-size: 1.1rem; }
-.top-bar .status-badge {
-  font-size: 0.7rem; padding: 0.2rem 0.6rem;
-  border-radius: 20px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.5px;
-}
-.status-online { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
-.status-offline { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
-.top-bar-actions { display: flex; gap: 0.5rem; align-items: center; }
-
-/* ─── BOTTOM NAV ─── */
-.bottom-nav {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
-  background: rgba(17, 24, 39, 0.96);
-  backdrop-filter: blur(12px);
-  border-top: 1px solid var(--border);
-  display: flex; justify-content: space-around;
-  padding: 0.5rem 0 calc(0.5rem + env(safe-area-inset-bottom, 0px));
-}
-.nav-item {
-  display: flex; flex-direction: column; align-items: center;
-  padding: 0.4rem 0.8rem; border-radius: var(--radius-sm);
-  color: var(--text-muted); font-size: 0.65rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.5px;
-  transition: var(--transition); cursor: pointer;
-  text-decoration: none; background: none; border: none;
-  gap: 0.15rem;
-}
-.nav-item i { font-size: 1.3rem; }
-.nav-item.active, .nav-item:hover { color: var(--accent); }
-.nav-item.active { background: var(--accent-dim); }
-.nav-item.nav-checkin {
-  background: var(--accent); color: var(--bg-primary);
-  border-radius: 50%; width: 52px; height: 52px;
-  margin-top: -20px; box-shadow: 0 4px 16px rgba(245, 158, 11, 0.4);
-  justify-content: center; padding: 0; font-size: 0;
-}
-.nav-item.nav-checkin i { font-size: 1.6rem; }
-.nav-item.nav-checkin.active, .nav-item.nav-checkin:hover {
-  background: var(--accent-hover); color: var(--bg-primary);
-}
-
-/* ─── VIEWS ─── */
-.view { display: none; padding: 1rem; animation: fadeIn 0.25s ease; }
-.view.active { display: block; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
-/* ─── CARDS ─── */
-.sc-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.25rem;
-  margin-bottom: 1rem;
-  transition: var(--transition);
-}
-.sc-card:hover { border-color: var(--border-accent); }
-
-.stat-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem;
-  text-align: center;
-}
-.stat-card .stat-value {
-  font-family: var(--font-display);
-  font-size: 2rem; font-weight: 700;
-  line-height: 1; margin-bottom: 0.25rem;
-}
-.stat-card .stat-label {
-  font-size: 0.7rem; text-transform: uppercase;
-  letter-spacing: 1px; color: var(--text-muted); font-weight: 600;
-}
-.stat-accent .stat-value { color: var(--accent); }
-.stat-success .stat-value { color: var(--success); }
-.stat-info .stat-value { color: var(--info); }
-.stat-warning .stat-value { color: var(--warning); }
-
-/* ─── SECTION HEADERS ─── */
-.section-header {
-  font-family: var(--font-display);
-  font-size: 0.75rem; text-transform: uppercase;
-  letter-spacing: 1.5px; color: var(--text-muted);
-  margin-bottom: 0.75rem; padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-}
-
-/* ─── VISITOR LIST ITEMS ─── */
-.visitor-item {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.85rem 1rem;
-  margin-bottom: 0.5rem;
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 0.75rem; transition: var(--transition);
-}
-.visitor-item:hover { border-color: var(--border-accent); }
-.visitor-info { flex: 1; min-width: 0; }
-.visitor-info .v-name {
-  font-weight: 600; font-size: 0.95rem;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.visitor-info .v-meta {
-  font-size: 0.75rem; color: var(--text-secondary);
-  display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.15rem;
-}
-.visitor-info .v-meta span { display: flex; align-items: center; gap: 0.2rem; }
-.visitor-status {
-  font-size: 0.65rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.5px;
-  padding: 0.2rem 0.5rem; border-radius: 4px;
-  white-space: nowrap;
-}
-.status-onsite { background: rgba(245, 158, 11, 0.15); color: var(--accent); }
-.status-exited { background: rgba(16, 185, 129, 0.15); color: var(--success); }
-
-/* ─── FORMS ─── */
-.form-control, .form-select {
-  background: var(--bg-input) !important;
-  border: 1px solid var(--border) !important;
-  color: var(--text-primary) !important;
-  border-radius: var(--radius-sm) !important;
-  padding: 0.7rem 1rem !important;
-  font-size: 1rem !important;
-  transition: var(--transition);
-}
-.form-control:focus, .form-select:focus {
-  border-color: var(--accent) !important;
-  box-shadow: 0 0 0 3px var(--accent-dim) !important;
-}
-.form-control::placeholder { color: var(--text-muted) !important; }
-.form-label {
-  font-size: 0.75rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.5px;
-  color: var(--text-secondary); margin-bottom: 0.35rem;
-}
-.form-floating > .form-control { padding-top: 1.5rem !important; }
-
-/* ─── BUTTONS ─── */
-.btn-accent {
-  background: var(--accent); color: var(--bg-primary);
-  border: none; font-weight: 700; border-radius: var(--radius-sm);
-  padding: 0.75rem 1.5rem; font-size: 1rem;
-  transition: var(--transition); text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.btn-accent:hover { background: var(--accent-hover); color: var(--bg-primary); }
-.btn-accent:active { transform: scale(0.98); }
-
-.btn-outline-accent {
-  background: transparent; color: var(--accent);
-  border: 1px solid var(--accent); font-weight: 600;
-  border-radius: var(--radius-sm); padding: 0.6rem 1.25rem;
-  transition: var(--transition);
-}
-.btn-outline-accent:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
-
-.btn-ghost {
-  background: transparent; border: 1px solid var(--border);
-  color: var(--text-secondary); border-radius: var(--radius-sm);
-  padding: 0.5rem 1rem; font-weight: 500;
-  transition: var(--transition);
-}
-.btn-ghost:hover { border-color: var(--text-muted); color: var(--text-primary); }
-
-.btn-danger-soft {
-  background: rgba(239, 68, 68, 0.1); color: var(--danger);
-  border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm);
-  font-weight: 600; transition: var(--transition);
-}
-.btn-danger-soft:hover { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
-
-.btn-success-soft {
-  background: rgba(16, 185, 129, 0.1); color: var(--success);
-  border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-sm);
-  font-weight: 600; transition: var(--transition);
-}
-.btn-success-soft:hover { background: rgba(16, 185, 129, 0.2); color: var(--success); }
-
-.btn-lg-touch {
-  min-height: 52px; font-size: 1rem;
-}
-
-/* ─── SEARCH ─── */
-.search-box {
-  position: relative;
-}
-.search-box i {
-  position: absolute; left: 1rem; top: 50%;
-  transform: translateY(-50%); color: var(--text-muted);
-  pointer-events: none;
-}
-.search-box .form-control { padding-left: 2.5rem !important; }
-
-/* ─── TOAST ─── */
-.sc-toast {
-  position: fixed; top: 1rem; right: 1rem; left: 1rem; z-index: 10000;
-  max-width: 420px; margin: 0 auto;
-  padding: 1rem 1.25rem;
-  border-radius: var(--radius-sm);
-  font-weight: 600; font-size: 0.9rem;
-  display: flex; align-items: center; gap: 0.75rem;
-  transform: translateY(-120%); opacity: 0;
-  transition: all 0.3s ease;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-}
-.sc-toast.show { transform: translateY(0); opacity: 1; }
-.sc-toast.toast-success { background: #065f46; color: #a7f3d0; border: 1px solid #10b981; }
-.sc-toast.toast-error { background: #7f1d1d; color: #fecaca; border: 1px solid #ef4444; }
-.sc-toast.toast-info { background: #1e3a5f; color: #bfdbfe; border: 1px solid #3b82f6; }
-.sc-toast.toast-warning { background: #78350f; color: #fde68a; border: 1px solid #f59e0b; }
-
-/* ─── MODAL OVERRIDES ─── */
-.modal-content {
-  background: var(--bg-card) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--radius) !important;
-}
-.modal-header { border-bottom: 1px solid var(--border) !important; }
-.modal-footer { border-top: 1px solid var(--border) !important; }
-.modal-title { font-family: var(--font-display); font-size: 1rem; letter-spacing: 1px; }
-.modal-backdrop.show { opacity: 0.7 !important; }
-
-/* ─── DATE FILTER PILLS ─── */
-.filter-pills { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.filter-pill {
-  padding: 0.4rem 0.9rem; border-radius: 20px;
-  font-size: 0.75rem; font-weight: 600;
-  background: var(--bg-input); border: 1px solid var(--border);
-  color: var(--text-secondary); cursor: pointer;
-  transition: var(--transition); text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.filter-pill.active, .filter-pill:hover {
-  background: var(--accent-dim); color: var(--accent);
-  border-color: var(--accent);
-}
-
-/* ─── SETTINGS ─── */
-.setting-group {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden; margin-bottom: 1rem;
-}
-.setting-group-title {
-  font-family: var(--font-display);
-  font-size: 0.7rem; text-transform: uppercase;
-  letter-spacing: 1.5px; color: var(--text-muted);
-  padding: 0.75rem 1rem; background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-}
-.setting-item {
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-}
-.setting-item:last-child { border-bottom: none; }
-.setting-item .si-label { font-size: 0.9rem; font-weight: 500; }
-.setting-item .si-desc { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.1rem; }
-
-/* ─── EMPTY STATE ─── */
-.empty-state {
-  text-align: center; padding: 3rem 1rem;
-  color: var(--text-muted);
-}
-.empty-state i { font-size: 3rem; margin-bottom: 1rem; display: block; opacity: 0.4; }
-.empty-state p { font-size: 0.9rem; margin: 0; }
-
-/* ─── BADGE PULSE ─── */
-.pulse-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  display: inline-block; margin-right: 0.35rem;
-}
-.pulse-dot.green { background: var(--success); box-shadow: 0 0 6px var(--success); animation: pulse 2s infinite; }
-.pulse-dot.red { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
-.pulse-dot.amber { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: pulse 2s infinite; }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-/* ─── TIME DISPLAY ─── */
-.time-display {
-  font-family: var(--font-display);
-  font-size: 1.8rem; font-weight: 700;
-  color: var(--accent); text-align: center;
-  padding: 1rem; background: var(--accent-dim);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-accent);
-}
-
-/* ─── RESPONSIVE ─── */
-@media (min-width: 768px) {
-  .view { max-width: 720px; margin: 0 auto; }
-  .login-card { padding: 3rem; }
-}
-@media (min-width: 1024px) {
-  .view { max-width: 900px; }
-}
-
-/* ─── DETAIL MODAL ─── */
-.detail-row {
-  display: flex; justify-content: space-between;
-  padding: 0.6rem 0; border-bottom: 1px solid var(--border);
-}
-.detail-row:last-child { border-bottom: none; }
-.detail-label { color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
-.detail-value { font-weight: 600; text-align: right; }
-
-/* ─── SYNC STATUS ─── */
-.sync-indicator {
-  display: flex; align-items: center; gap: 0.25rem;
-  font-size: 0.65rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.5px;
-}
-</style>
+<link rel="stylesheet" href="./styles.css">
 </head>
 <body>
 
-<!-- ═══ LOADING ═══ -->
+<!-- â•â•â• LOADING â•â•â• -->
 <div id="app-loading">
   <div class="spinner"></div>
   <div class="brand">Security Checkpoint</div>
 </div>
 
-<!-- ═══ LOGIN SCREEN ═══ -->
-<div id="login-screen" style="display:none;">
+<!-- â•â•â• LOGIN SCREEN â•â•â• -->
+<div id="login-screen" hidden>
   <div class="login-card">
     <div class="logo-icon"><i class="bi bi-shield-lock-fill"></i></div>
     <h1>Security Checkpoint</h1>
@@ -475,7 +38,7 @@ html, body {
         <label class="form-label">PIN / Password</label>
         <input type="password" class="form-control" id="login-pass" placeholder="Enter PIN" required autocomplete="off">
       </div>
-      <div id="login-error" class="text-danger mb-3" style="font-size:0.85rem; display:none;"></div>
+      <div id="login-error" class="text-danger mb-3 msg-sm d-none"></div>
       <button type="submit" class="btn btn-accent w-100 btn-lg-touch">
         <i class="bi bi-unlock-fill me-2"></i>Authenticate
       </button>
@@ -483,8 +46,8 @@ html, body {
   </div>
 </div>
 
-<!-- ═══ MAIN APP ═══ -->
-<div id="main-app">
+<!-- â•â•â• MAIN APP â•â•â• -->
+<div id="main-app" hidden>
   <!-- TOP BAR -->
   <div class="top-bar">
     <div class="brand-sm">
@@ -501,7 +64,7 @@ html, body {
     </div>
   </div>
 
-  <!-- ═══ DASHBOARD VIEW ═══ -->
+  <!-- â•â•â• DASHBOARD VIEW â•â•â• -->
   <div class="view" id="view-dashboard">
     <div class="row g-2 mb-3">
       <div class="col-6 col-md-3">
@@ -531,10 +94,10 @@ html, body {
     </div>
 
     <div class="d-flex gap-2 mb-3">
-      <button class="btn btn-accent flex-fill btn-lg-touch" onclick="App.navigate('checkin')">
+      <button class="btn btn-accent flex-fill btn-lg-touch" id="btn-new-entry">
         <i class="bi bi-person-plus-fill me-1"></i> New Entry
       </button>
-      <button class="btn btn-outline-accent" onclick="App.exportToday()" title="Export Today">
+      <button class="btn btn-outline-accent" id="btn-export-today" title="Export Today">
         <i class="bi bi-file-earmark-arrow-down"></i>
       </button>
     </div>
@@ -547,7 +110,7 @@ html, body {
     <div id="onsite-list"></div>
   </div>
 
-  <!-- ═══ CHECK-IN VIEW ═══ -->
+  <!-- â•â•â• CHECK-IN VIEW â•â•â• -->
   <div class="view" id="view-checkin">
     <div class="section-header">
       <span><i class="bi bi-person-plus-fill me-1"></i> New Entry</span>
@@ -583,7 +146,7 @@ html, body {
     </form>
   </div>
 
-  <!-- ═══ SEARCH / EXIT VIEW ═══ -->
+  <!-- â•â•â• SEARCH / EXIT VIEW â•â•â• -->
   <div class="view" id="view-exit">
     <div class="section-header">
       <span><i class="bi bi-search me-1"></i> Search & Check-Out</span>
@@ -595,11 +158,11 @@ html, body {
     <div id="exit-search-results"></div>
   </div>
 
-  <!-- ═══ LOGS VIEW ═══ -->
+  <!-- â•â•â• LOGS VIEW â•â•â• -->
   <div class="view" id="view-logs">
     <div class="section-header">
       <span><i class="bi bi-clock-history me-1"></i> Visitor Logs</span>
-      <button class="btn btn-ghost btn-sm" onclick="App.exportLogs()">
+      <button class="btn btn-ghost btn-sm" id="btn-export-logs">
         <i class="bi bi-download me-1"></i>Export
       </button>
     </div>
@@ -611,7 +174,7 @@ html, body {
       <button class="filter-pill" data-filter="custom">Custom</button>
     </div>
 
-    <div id="custom-date-range" style="display:none;" class="mb-3">
+    <div id="custom-date-range" class="mb-3 d-none">
       <div class="row g-2">
         <div class="col-6">
           <label class="form-label">From</label>
@@ -632,7 +195,7 @@ html, body {
     <div id="logs-list"></div>
   </div>
 
-  <!-- ═══ ADMIN SETTINGS VIEW ═══ -->
+  <!-- â•â•â• ADMIN SETTINGS VIEW â•â•â• -->
   <div class="view" id="view-settings">
     <div class="section-header">
       <span><i class="bi bi-gear-fill me-1"></i> Admin Settings</span>
@@ -646,7 +209,7 @@ html, body {
           <label class="form-label">Site / Gate Name</label>
           <input type="text" class="form-control" id="set-gate-name" placeholder="e.g. Main Gate">
         </div>
-        <button class="btn btn-accent btn-sm" onclick="App.saveSettings()">Save Branding</button>
+        <button class="btn btn-accent btn-sm" id="btn-save-branding">Save Branding</button>
       </div>
     </div>
 
@@ -672,17 +235,17 @@ html, body {
         <div class="mb-3">
           <label class="form-label">API Token</label>
           <input type="password" class="form-control" id="set-api-token" placeholder="token api_key:api_secret">
-          <div class="form-text" style="font-size:0.7rem;color:var(--text-muted);margin-top:0.35rem;">
-            Frappe format: <code style="color:var(--accent);">token api_key:api_secret</code>
+          <div class="form-text sync-token-note">
+            Frappe format: <code class="text-accent">token api_key:api_secret</code>
           </div>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-          <button class="btn btn-outline-accent btn-sm" onclick="App.testConnection()">
+          <button class="btn btn-outline-accent btn-sm" id="btn-test-connection">
             <i class="bi bi-plug-fill me-1"></i>Test Connection
           </button>
-          <button class="btn btn-accent btn-sm" onclick="App.saveSyncConfig()">Save</button>
+          <button class="btn btn-accent btn-sm" id="btn-save-sync">Save</button>
         </div>
-        <div id="sync-test-result" class="mt-2" style="font-size:0.85rem;"></div>
+        <div id="sync-test-result" class="mt-2 msg-sm"></div>
       </div>
     </div>
 
@@ -691,13 +254,13 @@ html, body {
       <div class="setting-group-title"><i class="bi bi-arrow-repeat me-1"></i> Sync Controls</div>
       <div class="p-3">
         <div class="d-flex flex-wrap gap-2 mb-3">
-          <button class="btn btn-accent btn-sm" onclick="App.syncNow()">
+          <button class="btn btn-accent btn-sm" id="btn-sync-now">
             <i class="bi bi-arrow-repeat me-1"></i>Sync Now
           </button>
-          <button class="btn btn-outline-accent btn-sm" onclick="App.retryFailed()">
+          <button class="btn btn-outline-accent btn-sm" id="btn-retry-failed">
             <i class="bi bi-arrow-clockwise me-1"></i>Retry Failed
           </button>
-          <button class="btn btn-ghost btn-sm" onclick="App.exportSyncDiag()">
+          <button class="btn btn-ghost btn-sm" id="btn-export-sync-diag">
             <i class="bi bi-bug me-1"></i>Diagnostics
           </button>
         </div>
@@ -719,7 +282,7 @@ html, body {
             <option value="365">365 days</option>
           </select>
         </div>
-        <button class="btn btn-danger-soft btn-sm" onclick="App.archiveOld()">
+        <button class="btn btn-danger-soft btn-sm" id="btn-archive-old">
           <i class="bi bi-archive me-1"></i>Archive Now
         </button>
       </div>
@@ -733,29 +296,29 @@ html, body {
 
   <!-- BOTTOM NAV -->
   <div class="bottom-nav">
-    <button class="nav-item active" data-view="dashboard" onclick="App.navigate('dashboard')">
+    <button class="nav-item active" data-view="dashboard">
       <i class="bi bi-grid-1x2-fill"></i>
       <span>Dashboard</span>
     </button>
-    <button class="nav-item" data-view="exit" onclick="App.navigate('exit')">
+    <button class="nav-item" data-view="exit">
       <i class="bi bi-search"></i>
       <span>Search</span>
     </button>
-    <button class="nav-item nav-checkin" data-view="checkin" onclick="App.navigate('checkin')">
+    <button class="nav-item nav-checkin" data-view="checkin">
       <i class="bi bi-plus-lg"></i>
     </button>
-    <button class="nav-item" data-view="logs" onclick="App.navigate('logs')">
+    <button class="nav-item" data-view="logs">
       <i class="bi bi-clock-history"></i>
       <span>Logs</span>
     </button>
-    <button class="nav-item" data-view="settings" onclick="App.navigate('settings')" id="nav-settings">
+    <button class="nav-item" data-view="settings" id="nav-settings">
       <i class="bi bi-gear-fill"></i>
       <span>Settings</span>
     </button>
   </div>
 </div>
 
-<!-- ═══ MODALS ═══ -->
+<!-- â•â•â• MODALS â•â•â• -->
 
 <!-- Confirm Check-In Modal -->
 <div class="modal fade" id="confirmCheckinModal" tabindex="-1">
@@ -816,16 +379,46 @@ html, body {
       <div class="modal-body">
         <div class="mb-3">
           <label class="form-label">Username</label>
-          <input type="text" class="form-control" id="new-user-name" placeholder="Guard username">
+        <input type="text" class="form-control" id="new-user-name" placeholder="Guard username" pattern="[a-z0-9._-]{3,24}" maxlength="24" autocomplete="off" autocapitalize="off">
         </div>
         <div class="mb-3">
           <label class="form-label">PIN / Password</label>
-          <input type="password" class="form-control" id="new-user-pin" placeholder="4-8 digit PIN">
+          <input type="password" class="form-control" id="new-user-pin" placeholder="Minimum 6 characters" minlength="6" maxlength="32" autocomplete="off">
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost btn-sm" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-accent btn-sm" onclick="App.addUser()">Create</button>
+        <button class="btn btn-accent btn-sm" id="btn-add-user">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Force PIN Change Modal -->
+<div class="modal fade" id="forcePinModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-key-fill me-2"></i>Change Admin PIN</h5>
+      </div>
+      <div class="modal-body">
+        <p class="small text-secondary mb-3">Default admin PIN must be changed before continuing.</p>
+        <div class="mb-2">
+          <label class="form-label">Current PIN</label>
+          <input type="password" class="form-control" id="force-pin-current" autocomplete="off">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">New PIN</label>
+          <input type="password" class="form-control" id="force-pin-new" placeholder="Minimum 6 characters" autocomplete="off">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Confirm New PIN</label>
+          <input type="password" class="form-control" id="force-pin-confirm" autocomplete="off">
+        </div>
+        <div id="force-pin-error" class="text-danger mt-2 msg-sm d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-accent btn-sm" id="btn-force-pin-save">Save PIN</button>
       </div>
     </div>
   </div>
@@ -872,7 +465,7 @@ html, body {
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost btn-sm" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-accent btn-sm" onclick="App.saveEdit()">Save Changes</button>
+        <button class="btn btn-accent btn-sm" id="btn-save-edit">Save Changes</button>
       </div>
     </div>
   </div>
@@ -895,10 +488,10 @@ html, body {
           </div>
         </div>
         <div class="d-grid gap-2">
-          <button class="btn btn-accent" onclick="App.doExport('xlsx')">
+          <button class="btn btn-accent" id="btn-do-export-xlsx">
             <i class="bi bi-file-earmark-spreadsheet me-2"></i>Export .xlsx
           </button>
-          <button class="btn btn-outline-accent" onclick="App.doExport('csv')">
+          <button class="btn btn-outline-accent" id="btn-do-export-csv">
             <i class="bi bi-filetype-csv me-2"></i>Export .csv
           </button>
         </div>
@@ -909,1333 +502,10 @@ html, body {
 
 <div id="toast-container"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-<script>
-/* ═══════════════════════════════════════════════════
-   SECURITY CHECKPOINT PWA — COMPLETE APPLICATION
-   ═══════════════════════════════════════════════════ */
-
-'use strict';
-
-// ─── UUID Generator ───
-function uuid() {
-  return 'xxxx-xxxx-4xxx-yxxx-xxxx'.replace(/[xy]/g, c => {
-    const r = Math.random() * 16 | 0;
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-  }) + '-' + Date.now().toString(36);
-}
-
-// ─── Device ID ───
-function getDeviceId() {
-  let id = localStorage.getItem('sc_device_id');
-  if (!id) { id = 'DEV-' + uuid(); localStorage.setItem('sc_device_id', id); }
-  return id;
-}
-
-// ─── Time Helpers ───
-const T = {
-  now: () => new Date().toISOString(),
-  localISO: (d = new Date()) => {
-    const off = d.getTimezoneOffset();
-    const local = new Date(d.getTime() - off * 60000);
-    return local.toISOString().slice(0, 16);
-  },
-  display: (iso) => {
-    if (!iso) return '--';
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) +
-      ' ' + d.toLocaleDateString([], { day: '2-digit', month: 'short' });
-  },
-  displayTime: (iso) => {
-    if (!iso) return '--';
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-  },
-  displayDate: (iso) => {
-    if (!iso) return '--';
-    return new Date(iso).toLocaleDateString([], { year: 'numeric', month: 'short', day: '2-digit' });
-  },
-  duration: (isoIn, isoOut) => {
-    if (!isoIn || !isoOut) return '--';
-    const mins = Math.round((new Date(isoOut) - new Date(isoIn)) / 60000);
-    if (mins < 0) return '--';
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return `${h}:${String(m).padStart(2, '0')}`;
-  },
-  durationMins: (isoIn, isoOut) => {
-    if (!isoIn || !isoOut) return 0;
-    return Math.max(0, Math.round((new Date(isoOut) - new Date(isoIn)) / 60000));
-  },
-  todayStart: () => {
-    const d = new Date(); d.setHours(0, 0, 0, 0);
-    return d.toISOString();
-  },
-  todayEnd: () => {
-    const d = new Date(); d.setHours(23, 59, 59, 999);
-    return d.toISOString();
-  },
-  yesterdayStart: () => {
-    const d = new Date(); d.setDate(d.getDate() - 1); d.setHours(0, 0, 0, 0);
-    return d.toISOString();
-  },
-  yesterdayEnd: () => {
-    const d = new Date(); d.setDate(d.getDate() - 1); d.setHours(23, 59, 59, 999);
-    return d.toISOString();
-  },
-  weekStart: () => {
-    const d = new Date();
-    const day = d.getDay();
-    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-    d.setHours(0, 0, 0, 0);
-    return d.toISOString();
-  },
-  minsOnSite: (isoIn) => {
-    return Math.max(0, Math.round((Date.now() - new Date(isoIn).getTime()) / 60000));
-  },
-  formatMins: (mins) => {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return `${h}:${String(m).padStart(2, '0')}`;
-  },
-  toDateInput: (d = new Date()) => {
-    return d.toISOString().slice(0, 10);
-  }
-};
-
-
-/* ═══════════════════════════════════════
-   DATABASE — IndexedDB Wrapper
-   ═══════════════════════════════════════ */
-const DB = {
-  db: null,
-  DB_NAME: 'SecurityCheckpointDB',
-  DB_VERSION: 2,
-
-  async init() {
-    return new Promise((resolve, reject) => {
-      const req = indexedDB.open(this.DB_NAME, this.DB_VERSION);
-      req.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains('visitors')) {
-          const store = db.createObjectStore('visitors', { keyPath: 'id' });
-          store.createIndex('status', 'status', { unique: false });
-          store.createIndex('time_in', 'time_in', { unique: false });
-          store.createIndex('visitor_name', 'visitor_name', { unique: false });
-          store.createIndex('cell_no', 'cell_no', { unique: false });
-        }
-        if (!db.objectStoreNames.contains('users')) {
-          db.createObjectStore('users', { keyPath: 'username' });
-        }
-        if (!db.objectStoreNames.contains('settings')) {
-          db.createObjectStore('settings', { keyPath: 'key' });
-        }
-      };
-      req.onsuccess = (e) => { this.db = e.target.result; resolve(); };
-      req.onerror = (e) => reject(e.target.error);
-    });
-  },
-
-  _tx(store, mode = 'readonly') {
-    const tx = this.db.transaction(store, mode);
-    return tx.objectStore(store);
-  },
-
-  async addVisitor(record) {
-    return new Promise((resolve, reject) => {
-      const store = this._tx('visitors', 'readwrite');
-      const req = store.put(record);
-      req.onsuccess = () => resolve(record);
-      req.onerror = (e) => reject(e.target.error);
-    });
-  },
-
-  async getVisitor(id) {
-    return new Promise((resolve, reject) => {
-      const store = this._tx('visitors');
-      const req = store.get(id);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = (e) => reject(e.target.error);
-    });
-  },
-
-  async getAllVisitors() {
-    return new Promise((resolve, reject) => {
-      const store = this._tx('visitors');
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = (e) => reject(e.target.error);
-    });
-  },
-
-  async getOnSite() {
-    return new Promise((resolve, reject) => {
-      const store = this._tx('visitors');
-      const idx = store.index('status');
-      const req = idx.getAll('ON_SITE');
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = (e) => reject(e.target.error);
-    });
-  },
-
-  async getByDateRange(start, end) {
-    return new Promise((resolve, reject) => {
-      const store = this._tx('visitors');
-      const idx = store.index('time_in');
-      const range = IDBKeyRange.bound(start, end);
-      const req = idx.getAll(range);
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = (e) => reject(e.target.error);
-    });
-  },
-
-  async getUnsynced() {
-    const all = await this.getAllVisitors();
-    return all.filter(v => !v.synced);
-  },
-
-  async findActive(name, cell_no) {
-    const onSite = await this.getOnSite();
-    return onSite.find(v =>
-      v.visitor_name.toLowerCase() === name.toLowerCase() &&
-      v.cell_no.replace(/\s/g, '') === cell_no.replace(/\s/g, '')
-    );
-  },
-
-  async search(query) {
-    const all = await this.getOnSite();
-    const q = query.toLowerCase().trim();
-    if (!q) return all;
-    return all.filter(v =>
-      v.visitor_name.toLowerCase().includes(q) ||
-      v.cell_no.includes(q) ||
-      (v.company || '').toLowerCase().includes(q) ||
-      (v.vehicle_reg || '').toLowerCase().includes(q)
-    );
-  },
-
-  async searchAll(query, records) {
-    const q = query.toLowerCase().trim();
-    if (!q) return records;
-    return records.filter(v =>
-      v.visitor_name.toLowerCase().includes(q) ||
-      v.cell_no.includes(q) ||
-      (v.company || '').toLowerCase().includes(q) ||
-      (v.vehicle_reg || '').toLowerCase().includes(q)
-    );
-  },
-
-  async deleteOlderThan(days) {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - days);
-    const all = await this.getAllVisitors();
-    const toDelete = all.filter(v => v.status === 'EXITED' && new Date(v.time_in) < cutoff);
-    const store = this._tx('visitors', 'readwrite');
-    let count = 0;
-    for (const v of toDelete) { store.delete(v.id); count++; }
-    return count;
-  },
-
-  // ─── Settings ───
-  async getSetting(key) {
-    return new Promise((resolve, reject) => {
-      const store = this._tx('settings');
-      const req = store.get(key);
-      req.onsuccess = () => resolve(req.result ? req.result.value : null);
-      req.onerror = (e) => reject(e.target.error);
-    });
-  },
-
-  async setSetting(key, value) {
-    return new Promise((resolve, reject) => {
-      const store = this._tx('settings', 'readwrite');
-      const req = store.put({ key, value });
-      req.onsuccess = () => resolve();
-      req.onerror = (e) => reject(e.target.error);
-    });
-  },
-
-  // ─── Users ───
-  async getUser(username) {
-    return new Promise((resolve, reject) => {
-      const store = this._tx('users');
-      const req = store.get(username);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = (e) => reject(e.target.error);
-    });
-  },
-
-  async getAllUsers() {
-    return new Promise((resolve, reject) => {
-      const store = this._tx('users');
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = (e) => reject(e.target.error);
-    });
-  },
-
-  async putUser(user) {
-    return new Promise((resolve, reject) => {
-      const store = this._tx('users', 'readwrite');
-      const req = store.put(user);
-      req.onsuccess = () => resolve();
-      req.onerror = (e) => reject(e.target.error);
-    });
-  },
-
-  async deleteUser(username) {
-    return new Promise((resolve, reject) => {
-      const store = this._tx('users', 'readwrite');
-      const req = store.delete(username);
-      req.onsuccess = () => resolve();
-      req.onerror = (e) => reject(e.target.error);
-    });
-  }
-};
-
-
-
-
-/* ═══════════════════════════════════════
-   SYNC ENGINE — Static Token Auth
-   ═══════════════════════════════════════ */
-const Sync = {
-  config: null,
-  timer: null,
-  backoff: 1000,
-  maxBackoff: 60000,
-  isOnline: navigator.onLine,
-
-  async init() {
-    const url = await DB.getSetting('sync_api_url');
-    const token = await DB.getSetting('sync_api_token');
-    if (url && token) this.config = { url, token };
-
-    window.addEventListener('online', () => { this.isOnline = true; this.updateUI(); this.startSync(); });
-    window.addEventListener('offline', () => { this.isOnline = false; this.updateUI(); });
-    this.updateUI();
-
-    if (this.config && this.isOnline) this.startSync();
-  },
-
-  getAuthHeader() {
-    if (!this.config || !this.config.token) return {};
-    // Support Frappe "token api_key:api_secret" and "Bearer xxx" formats
-    const t = this.config.token.trim();
-    if (t.toLowerCase().startsWith('token ') || t.toLowerCase().startsWith('bearer ')) {
-      return { 'Authorization': t };
-    }
-    // Default: assume Frappe token format
-    return { 'Authorization': 'token ' + t };
-  },
-
-  // Convert ISO datetime to MySQL-compatible format: YYYY-MM-DD HH:MM:SS
-  toMySQL(iso) {
-    if (!iso) return null;
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return null;
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  },
-
-  // Prepare record for Frappe API — convert all datetime fields
-  preparePayload(record) {
-    const payload = { ...record };
-    payload.time_in = this.toMySQL(payload.time_in);
-    payload.time_out = this.toMySQL(payload.time_out);
-    payload.created_at = this.toMySQL(payload.created_at);
-    payload.updated_at = this.toMySQL(payload.updated_at);
-    // Remove local-only fields that Frappe doesn't need
-    delete payload.synced;
-    delete payload.sync_error;
-    return payload;
-  },
-
-  updateUI() {
-    const badge = document.getElementById('sync-status-badge');
-    if (!badge) return;
-    if (!this.config) {
-      badge.className = 'status-badge status-offline';
-      badge.innerHTML = '<span class="pulse-dot red"></span>No Sync';
-    } else if (this.isOnline) {
-      badge.className = 'status-badge status-online';
-      badge.innerHTML = '<span class="pulse-dot green"></span>Online';
-    } else {
-      badge.className = 'status-badge status-offline';
-      badge.innerHTML = '<span class="pulse-dot red"></span>Offline';
-    }
-  },
-
-  startSync() {
-    if (this.timer) clearTimeout(this.timer);
-    this.doSync();
-  },
-
-  async doSync() {
-    if (!this.config || !this.isOnline) return;
-    try {
-      const unsynced = await DB.getUnsynced();
-      if (unsynced.length === 0) {
-        this.backoff = 30000;
-        this.scheduleNext();
-        return;
-      }
-
-      let corsBlocked = false;
-
-      for (const record of unsynced) {
-        try {
-          const resp = await fetch(this.config.url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...this.getAuthHeader()
-            },
-            body: JSON.stringify(this.preparePayload(record))
-          });
-
-          if (resp.ok) {
-            record.synced = true;
-            record.sync_error = null;
-          } else {
-            const errText = await resp.text().catch(() => '');
-            record.sync_error = `HTTP ${resp.status}: ${errText.slice(0, 150)}`;
-          }
-
-          record.updated_at = T.now();
-          await DB.addVisitor(record);
-        } catch (err) {
-          if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
-            record.sync_error = 'CORS blocked — server must allow this origin';
-            corsBlocked = true;
-          } else {
-            record.sync_error = err.message;
-          }
-          record.updated_at = T.now();
-          await DB.addVisitor(record);
-          if (corsBlocked) break;
-        }
-      }
-
-      if (corsBlocked) {
-        this.backoff = this.maxBackoff;
-        this.scheduleNext();
-        App.toast('Sync blocked by CORS — configure server headers', 'error');
-        return;
-      }
-
-      this.backoff = 5000;
-      this.scheduleNext();
-      await DB.setSetting('last_sync', T.now());
-      App.toast('Sync complete', 'success');
-    } catch (err) {
-      console.warn('Sync error:', err.message);
-      this.backoff = Math.min(this.backoff * 2, this.maxBackoff);
-      this.scheduleNext();
-    }
-  },
-
-  scheduleNext() {
-    if (this.timer) clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.doSync(), this.backoff);
-  },
-
-  async testConnection(url, token) {
-    // Build auth header
-    const t = (token || '').trim();
-    let authHeader = {};
-    if (t) {
-      if (t.toLowerCase().startsWith('token ') || t.toLowerCase().startsWith('bearer ')) {
-        authHeader = { 'Authorization': t };
-      } else {
-        authHeader = { 'Authorization': 'token ' + t };
-      }
-    }
-
-    try {
-      // Use POST since Frappe API endpoints typically only accept POST
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeader
-        },
-        body: JSON.stringify({ _test_connection: true })
-      });
-      // 401/403 = auth rejected; anything else (200, 400, 422, 500) = connection works
-      if (resp.status === 401 || resp.status === 403) {
-        return { ok: false, error: `Authentication failed (HTTP ${resp.status}). Check your API token.` };
-      }
-      return { ok: true, status: resp.status };
-    } catch (err) {
-      if (err instanceof TypeError && (
-        err.message.includes('Failed to fetch') ||
-        err.message.includes('NetworkError') ||
-        err.message.includes('CORS')
-      )) {
-        return { ok: false, cors: true, error: 'CORS blocked — server must allow this origin' };
-      }
-      return { ok: false, error: err.message };
-    }
-  },
-
-  async getSyncStats() {
-    const all = await DB.getAllVisitors();
-    const synced = all.filter(v => v.synced).length;
-    const unsynced = all.filter(v => !v.synced).length;
-    const failed = all.filter(v => v.sync_error).length;
-    const lastSync = await DB.getSetting('last_sync');
-    return { total: all.length, synced, unsynced, failed, lastSync };
-  }
-};
-
-
-/* ═══════════════════════════════════════
-   EXPORT ENGINE
-   ═══════════════════════════════════════ */
-const Export = {
-  formatRecords(records) {
-    return records.map(r => ({
-      'Name': r.visitor_name,
-      'Cell No': r.cell_no,
-      'Company': r.company,
-      'Vehicle Reg': r.vehicle_reg || '',
-      'Time In': T.display(r.time_in),
-      'Time Out': r.time_out ? T.display(r.time_out) : '',
-      'Total Time': r.time_out ? T.duration(r.time_in, r.time_out) : (r.status === 'ON_SITE' ? 'On Site' : ''),
-      'Status': r.status,
-      'Notes': r.notes || ''
-    }));
-  },
-
-  async exportXLSX(records, filename) {
-    if (typeof XLSX === 'undefined') {
-      App.toast('Excel library not loaded', 'error');
-      return;
-    }
-    const data = this.formatRecords(records);
-    const ws = XLSX.utils.json_to_sheet(data);
-
-    // Column widths
-    ws['!cols'] = [
-      { wch: 22 }, { wch: 16 }, { wch: 20 }, { wch: 14 },
-      { wch: 18 }, { wch: 18 }, { wch: 10 }, { wch: 10 }, { wch: 24 }
-    ];
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Visitor Log');
-    XLSX.writeFile(wb, filename);
-  },
-
-  async exportCSV(records, filename) {
-    const data = this.formatRecords(records);
-    if (data.length === 0) { App.toast('No records to export', 'warning'); return; }
-    const headers = Object.keys(data[0]);
-    const csv = [
-      headers.join(','),
-      ...data.map(row => headers.map(h => `"${(row[h] || '').toString().replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
-  }
-};
-
-
-/* ═══════════════════════════════════════
-   MAIN APPLICATION
-   ═══════════════════════════════════════ */
-const App = {
-  currentView: 'dashboard',
-  currentUser: null,
-  pendingCheckin: null,
-  pendingCheckout: null,
-  logFilter: 'today',
-  clockInterval: null,
-  refreshInterval: null,
-
-  // ─── INIT ───
-  async init() {
-    try {
-      await DB.init();
-      await this.ensureDefaultAdmin();
-      await Sync.init();
-      await this.loadSettings();
-      this.bindEvents();
-      this.checkSession();
-
-      // Dismiss loading
-      setTimeout(() => {
-        const loader = document.getElementById('app-loading');
-        loader.classList.add('fade-out');
-        setTimeout(() => loader.style.display = 'none', 400);
-      }, 600);
-    } catch (err) {
-      console.error('Init error:', err);
-      document.getElementById('app-loading').innerHTML =
-        '<div style="color:#ef4444;text-align:center;padding:2rem;">' +
-        '<i class="bi bi-exclamation-triangle" style="font-size:2rem;display:block;margin-bottom:1rem;"></i>' +
-        'Failed to initialize database.<br><small>Please clear site data and reload.</small></div>';
-    }
-  },
-
-  async ensureDefaultAdmin() {
-    const admin = await DB.getUser('admin');
-    if (!admin) {
-      await DB.putUser({ username: 'admin', pin: '1234', role: 'admin', created_at: T.now() });
-    }
-  },
-
-  async loadSettings() {
-    const gateName = await DB.getSetting('gate_name');
-    if (gateName) {
-      document.getElementById('topbar-gate-name').textContent = gateName;
-      document.getElementById('login-gate-name').textContent = gateName;
-    }
-    const deviceEl = document.getElementById('device-id-display');
-    if (deviceEl) deviceEl.textContent = 'Device: ' + getDeviceId();
-  },
-
-  // ─── AUTH ───
-  checkSession() {
-    const session = sessionStorage.getItem('sc_session');
-    if (session) {
-      try {
-        this.currentUser = JSON.parse(session);
-        this.showApp();
-      } catch { this.showLogin(); }
-    } else { this.showLogin(); }
-  },
-
-  showLogin() {
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('main-app').style.display = 'none';
-    document.getElementById('login-user').value = '';
-    document.getElementById('login-pass').value = '';
-    document.getElementById('login-error').style.display = 'none';
-  },
-
-  showApp() {
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('main-app').style.display = 'block';
-
-    // Hide settings nav if guard
-    const settingsNav = document.getElementById('nav-settings');
-    if (this.currentUser && this.currentUser.role !== 'admin') {
-      settingsNav.style.display = 'none';
-    } else {
-      settingsNav.style.display = '';
-    }
-
-    this.navigate('dashboard');
-    this.startClock();
-    this.startAutoRefresh();
-  },
-
-  async authenticate(username, pin) {
-    const user = await DB.getUser(username.toLowerCase());
-    if (!user) return false;
-    if (user.pin !== pin) return false;
-    this.currentUser = { username: user.username, role: user.role };
-    sessionStorage.setItem('sc_session', JSON.stringify(this.currentUser));
-    return true;
-  },
-
-  lock() {
-    sessionStorage.removeItem('sc_session');
-    this.currentUser = null;
-    if (this.clockInterval) clearInterval(this.clockInterval);
-    if (this.refreshInterval) clearInterval(this.refreshInterval);
-    this.showLogin();
-  },
-
-  isAdmin() {
-    return this.currentUser && this.currentUser.role === 'admin';
-  },
-
-  // ─── NAVIGATION ───
-  navigate(view) {
-    // Redirect guard from settings
-    if (view === 'settings' && !this.isAdmin()) {
-      view = 'dashboard';
-      this.toast('Admin access required', 'warning');
-    }
-
-    this.currentView = view;
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    const target = document.getElementById('view-' + view);
-    if (target) target.classList.add('active');
-
-    document.querySelectorAll('.nav-item').forEach(n => {
-      n.classList.toggle('active', n.dataset.view === view);
-    });
-
-    // Refresh view data
-    switch (view) {
-      case 'dashboard': this.refreshDashboard(); break;
-      case 'checkin': this.resetCheckinForm(); break;
-      case 'exit': this.refreshExitSearch(); break;
-      case 'logs': this.refreshLogs(); break;
-      case 'settings': this.refreshSettings(); break;
-    }
-  },
-
-  // ─── CLOCK ───
-  startClock() {
-    const update = () => {
-      const el = document.getElementById('ci-time-in');
-      if (el) el.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-    };
-    update();
-    this.clockInterval = setInterval(update, 1000);
-  },
-
-  startAutoRefresh() {
-    this.refreshInterval = setInterval(() => {
-      if (this.currentView === 'dashboard') this.refreshDashboard();
-    }, 15000);
-  },
-
-  // ─── DASHBOARD ───
-  async refreshDashboard() {
-    const onSite = await DB.getOnSite();
-    const todayLogs = await DB.getByDateRange(T.todayStart(), T.todayEnd());
-
-    const exits = todayLogs.filter(v => v.status === 'EXITED');
-    const avgMins = exits.length > 0
-      ? Math.round(exits.reduce((sum, v) => sum + (v.total_minutes_on_site || 0), 0) / exits.length)
-      : 0;
-
-    document.getElementById('stat-onsite').textContent = onSite.length;
-    document.getElementById('stat-checkins').textContent = todayLogs.length;
-    document.getElementById('stat-exits').textContent = exits.length;
-    document.getElementById('stat-avg-time').textContent = avgMins > 0 ? T.formatMins(avgMins) : '--';
-    document.getElementById('onsite-count-label').textContent = onSite.length;
-
-    const list = document.getElementById('onsite-list');
-    if (onSite.length === 0) {
-      list.innerHTML = '<div class="empty-state"><i class="bi bi-shield-check"></i><p>No visitors currently on site</p></div>';
-      return;
-    }
-
-    // Sort by time_in descending
-    onSite.sort((a, b) => new Date(b.time_in) - new Date(a.time_in));
-
-    list.innerHTML = onSite.map(v => `
-      <div class="visitor-item" onclick="App.showCheckoutPrompt('${v.id}')">
-        <div class="visitor-info">
-          <div class="v-name">${this.esc(v.visitor_name)}</div>
-          <div class="v-meta">
-            <span><i class="bi bi-building"></i> ${this.esc(v.company)}</span>
-            <span><i class="bi bi-clock"></i> ${T.formatMins(T.minsOnSite(v.time_in))}</span>
-            ${v.vehicle_reg ? `<span><i class="bi bi-car-front"></i> ${this.esc(v.vehicle_reg)}</span>` : ''}
-          </div>
-        </div>
-        <button class="btn btn-danger-soft btn-sm" onclick="event.stopPropagation(); App.showCheckoutPrompt('${v.id}')">
-          <i class="bi bi-box-arrow-right"></i> Exit
-        </button>
-      </div>
-    `).join('');
-  },
-
-  // ─── CHECK-IN ───
-  resetCheckinForm() {
-    document.getElementById('checkin-form').reset();
-  },
-
-  async handleCheckin(e) {
-    e.preventDefault();
-
-    const name = document.getElementById('ci-name').value.trim();
-    const cell_no = document.getElementById('ci-cell').value.trim();
-    const company = document.getElementById('ci-company').value.trim();
-    const vehicle_reg = document.getElementById('ci-vehicle').value.trim();
-    const notes = document.getElementById('ci-notes').value.trim();
-
-    if (!name || !cell_no || !company) {
-      this.toast('Please fill in all required fields', 'error');
-      return;
-    }
-
-    // Check for active record
-    const existing = await DB.findActive(name, cell_no);
-    if (existing) {
-      this.toast('This person is already on site!', 'warning');
-      return;
-    }
-
-    this.pendingCheckin = { visitor_name: name, cell_no, company, vehicle_reg, notes };
-
-    document.getElementById('confirm-checkin-body').innerHTML = `
-      <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${this.esc(name)}</span></div>
-      <div class="detail-row"><span class="detail-label">Cell</span><span class="detail-value">${this.esc(cell_no)}</span></div>
-      <div class="detail-row"><span class="detail-label">Company</span><span class="detail-value">${this.esc(company)}</span></div>
-      ${vehicle_reg ? `<div class="detail-row"><span class="detail-label">Vehicle</span><span class="detail-value">${this.esc(vehicle_reg)}</span></div>` : ''}
-      <div class="detail-row"><span class="detail-label">Time In</span><span class="detail-value">${T.displayTime(T.now())}</span></div>
-    `;
-
-    new bootstrap.Modal(document.getElementById('confirmCheckinModal')).show();
-  },
-
-  async confirmCheckin() {
-    if (!this.pendingCheckin) return;
-    const d = this.pendingCheckin;
-
-    const record = {
-      id: uuid(),
-      visitor_name: d.visitor_name,
-      cell_no: d.cell_no,
-      company: d.company,
-      vehicle_reg: d.vehicle_reg || '',
-      time_in: T.now(),
-      time_out: null,
-      status: 'ON_SITE',
-      total_minutes_on_site: null,
-      notes: d.notes || '',
-      created_at: T.now(),
-      updated_at: T.now(),
-      device_id: getDeviceId(),
-      synced: false,
-      sync_error: null,
-      version: 1
-    };
-
-    await DB.addVisitor(record);
-    bootstrap.Modal.getInstance(document.getElementById('confirmCheckinModal'))?.hide();
-    this.pendingCheckin = null;
-    this.resetCheckinForm();
-    this.toast(`${d.visitor_name} checked in successfully`, 'success');
-
-    // Trigger sync if online
-    if (Sync.isOnline && Sync.config) Sync.startSync();
-  },
-
-  // ─── CHECK-OUT ───
-  async showCheckoutPrompt(id) {
-    const record = await DB.getVisitor(id);
-    if (!record || record.status !== 'ON_SITE') {
-      this.toast('Record not found or already exited', 'error');
-      return;
-    }
-
-    this.pendingCheckout = record;
-    const duration = T.formatMins(T.minsOnSite(record.time_in));
-
-    document.getElementById('confirm-checkout-body').innerHTML = `
-      <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${this.esc(record.visitor_name)}</span></div>
-      <div class="detail-row"><span class="detail-label">Company</span><span class="detail-value">${this.esc(record.company)}</span></div>
-      <div class="detail-row"><span class="detail-label">Time In</span><span class="detail-value">${T.display(record.time_in)}</span></div>
-      <div class="detail-row"><span class="detail-label">Time Out</span><span class="detail-value">${T.displayTime(T.now())}</span></div>
-      <div class="time-display mt-3">${duration} on site</div>
-    `;
-
-    new bootstrap.Modal(document.getElementById('confirmCheckoutModal')).show();
-  },
-
-  async confirmCheckout() {
-    if (!this.pendingCheckout) return;
-    const record = this.pendingCheckout;
-
-    record.time_out = T.now();
-    record.status = 'EXITED';
-    record.total_minutes_on_site = T.durationMins(record.time_in, record.time_out);
-    record.updated_at = T.now();
-    record.synced = false;
-    record.version = (record.version || 1) + 1;
-
-    await DB.addVisitor(record);
-    bootstrap.Modal.getInstance(document.getElementById('confirmCheckoutModal'))?.hide();
-
-    const name = record.visitor_name;
-    const dur = T.duration(record.time_in, record.time_out);
-    this.pendingCheckout = null;
-    this.toast(`${name} checked out (${dur})`, 'success');
-    this.refreshDashboard();
-
-    if (Sync.isOnline && Sync.config) Sync.startSync();
-  },
-
-  // ─── EXIT SEARCH ───
-  async refreshExitSearch() {
-    const query = document.getElementById('exit-search')?.value || '';
-    const results = await DB.search(query);
-
-    const container = document.getElementById('exit-search-results');
-    if (results.length === 0) {
-      container.innerHTML = query
-        ? '<div class="empty-state"><i class="bi bi-search"></i><p>No matching visitors on site</p></div>'
-        : '<div class="empty-state"><i class="bi bi-shield-check"></i><p>No visitors currently on site<br><small class="text-muted">Search across all on-site visitors</small></p></div>';
-      return;
-    }
-
-    container.innerHTML = results.map(v => `
-      <div class="visitor-item">
-        <div class="visitor-info">
-          <div class="v-name">${this.esc(v.visitor_name)}</div>
-          <div class="v-meta">
-            <span><i class="bi bi-telephone"></i> ${this.esc(v.cell_no)}</span>
-            <span><i class="bi bi-building"></i> ${this.esc(v.company)}</span>
-            <span><i class="bi bi-clock"></i> ${T.formatMins(T.minsOnSite(v.time_in))}</span>
-          </div>
-        </div>
-        <button class="btn btn-danger-soft btn-sm" onclick="App.showCheckoutPrompt('${v.id}')">
-          <i class="bi bi-box-arrow-right me-1"></i>Exit
-        </button>
-      </div>
-    `).join('');
-  },
-
-  // ─── LOGS ───
-  async refreshLogs() {
-    let start, end;
-    const filter = this.logFilter;
-
-    switch (filter) {
-      case 'today': start = T.todayStart(); end = T.todayEnd(); break;
-      case 'yesterday': start = T.yesterdayStart(); end = T.yesterdayEnd(); break;
-      case 'week': start = T.weekStart(); end = T.todayEnd(); break;
-      case 'custom':
-        const from = document.getElementById('log-date-from').value;
-        const to = document.getElementById('log-date-to').value;
-        if (!from || !to) return;
-        start = new Date(from + 'T00:00:00').toISOString();
-        end = new Date(to + 'T23:59:59').toISOString();
-        break;
-    }
-
-    let records = await DB.getByDateRange(start, end);
-    const searchQuery = document.getElementById('log-search')?.value || '';
-    if (searchQuery) records = await DB.searchAll(searchQuery, records);
-
-    records.sort((a, b) => new Date(b.time_in) - new Date(a.time_in));
-
-    const container = document.getElementById('logs-list');
-    if (records.length === 0) {
-      container.innerHTML = '<div class="empty-state"><i class="bi bi-journal-x"></i><p>No logs for this period</p></div>';
-      return;
-    }
-
-    container.innerHTML = records.map(v => `
-      <div class="visitor-item" onclick="App.showVisitorDetail('${v.id}')">
-        <div class="visitor-info">
-          <div class="v-name">${this.esc(v.visitor_name)}</div>
-          <div class="v-meta">
-            <span><i class="bi bi-building"></i> ${this.esc(v.company)}</span>
-            <span><i class="bi bi-clock"></i> ${T.displayTime(v.time_in)}</span>
-            <span>${v.time_out ? T.duration(v.time_in, v.time_out) : 'On Site'}</span>
-            ${!v.synced ? '<span style="color:var(--warning);"><i class="bi bi-cloud-slash"></i></span>' : ''}
-          </div>
-        </div>
-        <span class="visitor-status ${v.status === 'ON_SITE' ? 'status-onsite' : 'status-exited'}">
-          ${v.status === 'ON_SITE' ? 'On Site' : 'Exited'}
-        </span>
-      </div>
-    `).join('');
-  },
-
-  async showVisitorDetail(id) {
-    const v = await DB.getVisitor(id);
-    if (!v) return;
-
-    const body = document.getElementById('visitor-detail-body');
-    body.innerHTML = `
-      <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${this.esc(v.visitor_name)}</span></div>
-      <div class="detail-row"><span class="detail-label">Cell No</span><span class="detail-value">${this.esc(v.cell_no)}</span></div>
-      <div class="detail-row"><span class="detail-label">Company</span><span class="detail-value">${this.esc(v.company)}</span></div>
-      <div class="detail-row"><span class="detail-label">Vehicle Reg</span><span class="detail-value">${v.vehicle_reg || '--'}</span></div>
-      <div class="detail-row"><span class="detail-label">Time In</span><span class="detail-value">${T.display(v.time_in)}</span></div>
-      <div class="detail-row"><span class="detail-label">Time Out</span><span class="detail-value">${v.time_out ? T.display(v.time_out) : '--'}</span></div>
-      <div class="detail-row"><span class="detail-label">Duration</span><span class="detail-value">${v.time_out ? T.duration(v.time_in, v.time_out) : (v.status === 'ON_SITE' ? T.formatMins(T.minsOnSite(v.time_in)) + ' (ongoing)' : '--')}</span></div>
-      <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value"><span class="visitor-status ${v.status === 'ON_SITE' ? 'status-onsite' : 'status-exited'}">${v.status}</span></span></div>
-      <div class="detail-row"><span class="detail-label">Notes</span><span class="detail-value">${v.notes || '--'}</span></div>
-      <div class="detail-row"><span class="detail-label">Synced</span><span class="detail-value">${v.synced ? '<span style="color:var(--success);">Yes</span>' : '<span style="color:var(--warning);">No</span>'}</span></div>
-      ${v.sync_error ? `<div class="detail-row"><span class="detail-label">Sync Error</span><span class="detail-value" style="color:var(--danger);">${this.esc(v.sync_error)}</span></div>` : ''}
-    `;
-
-    const footer = document.getElementById('visitor-detail-footer');
-    let actions = '';
-    if (v.status === 'ON_SITE') {
-      actions += `<button class="btn btn-danger-soft btn-sm" onclick="bootstrap.Modal.getInstance(document.getElementById('visitorDetailModal')).hide(); App.showCheckoutPrompt('${v.id}')"><i class="bi bi-box-arrow-right me-1"></i>Mark Exit</button>`;
-    }
-    if (this.isAdmin()) {
-      actions += `<button class="btn btn-outline-accent btn-sm" onclick="bootstrap.Modal.getInstance(document.getElementById('visitorDetailModal')).hide(); App.showEditModal('${v.id}')"><i class="bi bi-pencil me-1"></i>Edit</button>`;
-    }
-    actions += `<button class="btn btn-ghost btn-sm" data-bs-dismiss="modal">Close</button>`;
-    footer.innerHTML = actions;
-
-    new bootstrap.Modal(document.getElementById('visitorDetailModal')).show();
-  },
-
-  // ─── ADMIN EDIT ───
-  async showEditModal(id) {
-    const v = await DB.getVisitor(id);
-    if (!v) return;
-
-    document.getElementById('edit-record-id').value = v.id;
-    document.getElementById('edit-name').value = v.visitor_name;
-    document.getElementById('edit-cell').value = v.cell_no;
-    document.getElementById('edit-company').value = v.company;
-    document.getElementById('edit-vehicle').value = v.vehicle_reg || '';
-    document.getElementById('edit-time-in').value = T.localISO(new Date(v.time_in));
-    document.getElementById('edit-time-out').value = v.time_out ? T.localISO(new Date(v.time_out)) : '';
-    document.getElementById('edit-notes').value = v.notes || '';
-
-    new bootstrap.Modal(document.getElementById('editTimeModal')).show();
-  },
-
-  async saveEdit() {
-    const id = document.getElementById('edit-record-id').value;
-    const v = await DB.getVisitor(id);
-    if (!v) return;
-
-    v.visitor_name = document.getElementById('edit-name').value.trim();
-    v.cell_no = document.getElementById('edit-cell').value.trim();
-    v.company = document.getElementById('edit-company').value.trim();
-    v.vehicle_reg = document.getElementById('edit-vehicle').value.trim();
-    v.notes = document.getElementById('edit-notes').value.trim();
-
-    const time_inVal = document.getElementById('edit-time-in').value;
-    const time_outVal = document.getElementById('edit-time-out').value;
-
-    if (time_inVal) v.time_in = new Date(time_inVal).toISOString();
-    if (time_outVal) {
-      v.time_out = new Date(time_outVal).toISOString();
-      v.status = 'EXITED';
-      v.total_minutes_on_site = T.durationMins(v.time_in, v.time_out);
-    }
-
-    v.updated_at = T.now();
-    v.synced = false;
-    v.version = (v.version || 1) + 1;
-
-    await DB.addVisitor(v);
-    bootstrap.Modal.getInstance(document.getElementById('editTimeModal'))?.hide();
-    this.toast('Record updated', 'success');
-    this.refreshLogs();
-    this.refreshDashboard();
-  },
-
-  // ─── EXPORT ───
-  async exportToday() {
-    const records = await DB.getByDateRange(T.todayStart(), T.todayEnd());
-    if (records.length === 0) { this.toast('No records to export', 'warning'); return; }
-    const gateName = (await DB.getSetting('gate_name')) || 'Gate';
-    const filename = `VisitorLog_${T.toDateInput()}_${gateName.replace(/\s/g, '_')}.xlsx`;
-    Export.exportXLSX(records, filename);
-    this.toast('Export downloaded', 'success');
-  },
-
-  exportLogs() {
-    // Set default dates
-    document.getElementById('export-from').value = T.toDateInput();
-    document.getElementById('export-to').value = T.toDateInput();
-    new bootstrap.Modal(document.getElementById('exportModal')).show();
-  },
-
-  async doExport(format) {
-    const from = document.getElementById('export-from').value;
-    const to = document.getElementById('export-to').value;
-    if (!from || !to) { this.toast('Select date range', 'error'); return; }
-
-    const start = new Date(from + 'T00:00:00').toISOString();
-    const end = new Date(to + 'T23:59:59').toISOString();
-    const records = await DB.getByDateRange(start, end);
-
-    if (records.length === 0) { this.toast('No records in range', 'warning'); return; }
-
-    const gateName = (await DB.getSetting('gate_name')) || 'Gate';
-    const filename = `VisitorLog_${from}_to_${to}_${gateName.replace(/\s/g, '_')}`;
-
-    if (format === 'xlsx') {
-      Export.exportXLSX(records, filename + '.xlsx');
-    } else {
-      Export.exportCSV(records, filename + '.csv');
-    }
-
-    bootstrap.Modal.getInstance(document.getElementById('exportModal'))?.hide();
-    this.toast('Export downloaded', 'success');
-  },
-
-  // ─── SETTINGS ───
-  async refreshSettings() {
-    // Load settings
-    const gateName = await DB.getSetting('gate_name');
-    const apiUrl = await DB.getSetting('sync_api_url');
-    const apiToken = await DB.getSetting('sync_api_token');
-    const retention = await DB.getSetting('retention_days');
-
-    if (gateName) document.getElementById('set-gate-name').value = gateName;
-    if (apiUrl) document.getElementById('set-api-url').value = apiUrl;
-    if (apiToken) document.getElementById('set-api-token').value = apiToken;
-    if (retention) document.getElementById('set-retention').value = retention;
-
-    // Users
-    const users = await DB.getAllUsers();
-    const userList = document.getElementById('user-list');
-    userList.innerHTML = users.map(u => `
-      <div class="setting-item">
-        <div>
-          <div class="si-label">${this.esc(u.username)}</div>
-          <div class="si-desc">${u.role === 'admin' ? 'Administrator' : 'Guard'}</div>
-        </div>
-        <div class="d-flex gap-1">
-          ${u.username !== 'admin' ? `<button class="btn btn-danger-soft btn-sm" onclick="App.removeUser('${u.username}')"><i class="bi bi-trash"></i></button>` : ''}
-          <button class="btn btn-ghost btn-sm" onclick="App.resetUserPin('${u.username}')"><i class="bi bi-key"></i></button>
-        </div>
-      </div>
-    `).join('');
-
-    // Sync stats
-    const stats = await Sync.getSyncStats();
-    document.getElementById('sync-stats').innerHTML = `
-      Total records: ${stats.total} | Synced: ${stats.synced} | Pending: ${stats.unsynced} | Failed: ${stats.failed}
-      ${stats.lastSync ? `<br>Last sync: ${T.display(stats.lastSync)}` : ''}
-    `;
-  },
-
-  async saveSettings() {
-    const gateName = document.getElementById('set-gate-name').value.trim();
-    await DB.setSetting('gate_name', gateName);
-    document.getElementById('topbar-gate-name').textContent = gateName || 'Checkpoint';
-    document.getElementById('login-gate-name').textContent = gateName || 'Gate Control System';
-    this.toast('Branding saved', 'success');
-  },
-
-  async saveSyncConfig() {
-    const url = document.getElementById('set-api-url').value.trim();
-    const token = document.getElementById('set-api-token').value.trim();
-
-    await DB.setSetting('sync_api_url', url);
-    await DB.setSetting('sync_api_token', token);
-
-    Sync.config = (url && token) ? { url, token } : null;
-    Sync.updateUI();
-    this.toast('Sync configuration saved', 'success');
-  },
-
-  async testConnection() {
-    const url = document.getElementById('set-api-url').value.trim();
-    const token = document.getElementById('set-api-token').value.trim();
-    const el = document.getElementById('sync-test-result');
-
-    if (!url) { el.innerHTML = '<span style="color:var(--danger);">Please enter an API endpoint URL</span>'; return; }
-    if (!token) { el.innerHTML = '<span style="color:var(--danger);">Please enter an API token</span>'; return; }
-
-    el.innerHTML = '<span style="color:var(--info);"><i class="bi bi-arrow-repeat spin me-1"></i>Testing connection...</span>';
-
-    const result = await Sync.testConnection(url, token);
-
-    if (result.ok) {
-      el.innerHTML = `<span style="color:var(--success);"><i class="bi bi-check-circle-fill me-1"></i>Connection successful (HTTP ${result.status})</span>`;
-    } else if (result.cors) {
-      const origin = window.location.origin;
-      el.innerHTML = `
-        <div style="color:var(--danger);margin-bottom:0.5rem;">
-          <i class="bi bi-shield-exclamation me-1"></i><strong>CORS Policy Blocked</strong>
-        </div>
-        <div style="font-size:0.8rem;color:var(--text-secondary);line-height:1.5;">
-          The server at <code style="color:var(--accent);">${url}</code>
-          must return CORS headers allowing this origin.<br><br>
-          <strong>For Frappe/ERPNext:</strong> Add to <code>site_config.json</code>:<br>
-          <code style="color:var(--accent);display:block;margin:0.3rem 0;padding:0.4rem 0.6rem;background:var(--bg-input);border-radius:4px;">
-            "allow_cors": ["${origin}"]
-          </code>
-          Then restart: <code style="color:var(--accent);">bench restart</code>
-        </div>
-      `;
-    } else {
-      el.innerHTML = `<span style="color:var(--danger);"><i class="bi bi-x-circle-fill me-1"></i>Connection failed: ${result.error}</span>`;
-    }
-  },
-
-  async syncNow() {
-    if (!Sync.config) { this.toast('No sync configured', 'warning'); return; }
-    if (!Sync.isOnline) { this.toast('Device is offline', 'error'); return; }
-    this.toast('Syncing...', 'info');
-    await Sync.doSync();
-    this.refreshSettings();
-  },
-
-  async retryFailed() {
-    const all = await DB.getAllVisitors();
-    let count = 0;
-    for (const v of all) {
-      if (v.sync_error) {
-        v.sync_error = null;
-        v.synced = false;
-        await DB.addVisitor(v);
-        count++;
-      }
-    }
-    this.toast(`${count} records queued for retry`, 'info');
-    if (Sync.isOnline && Sync.config) Sync.startSync();
-  },
-
-  async exportSyncDiag() {
-    const all = await DB.getAllVisitors();
-    const failed = all.filter(v => v.sync_error);
-    const data = {
-      device_id: getDeviceId(),
-      timestamp: T.now(),
-      config: Sync.config ? { url: Sync.config.url, hasToken: !!Sync.config.token } : null,
-      online: Sync.isOnline,
-      totalRecords: all.length,
-      syncedCount: all.filter(v => v.synced).length,
-      unsyncedCount: all.filter(v => !v.synced).length,
-      failedCount: failed.length,
-      failedRecords: failed.map(v => ({ id: v.id, visitor_name: v.visitor_name, error: v.sync_error }))
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `sync_diagnostics_${T.toDateInput()}.json`; a.click();
-    URL.revokeObjectURL(url);
-    this.toast('Diagnostics exported', 'success');
-  },
-
-  // ─── USER MANAGEMENT ───
-  async addUser() {
-    const username = document.getElementById('new-user-name').value.trim().toLowerCase();
-    const pin = document.getElementById('new-user-pin').value.trim();
-
-    if (!username || !pin) { this.toast('Username and PIN required', 'error'); return; }
-    if (pin.length < 4) { this.toast('PIN must be at least 4 characters', 'error'); return; }
-
-    const existing = await DB.getUser(username);
-    if (existing) { this.toast('Username already exists', 'error'); return; }
-
-    await DB.putUser({ username, pin, role: 'guard', created_at: T.now() });
-    bootstrap.Modal.getInstance(document.getElementById('addUserModal'))?.hide();
-    document.getElementById('new-user-name').value = '';
-    document.getElementById('new-user-pin').value = '';
-    this.toast(`Guard "${username}" created`, 'success');
-    this.refreshSettings();
-  },
-
-  async removeUser(username) {
-    if (!confirm(`Remove guard "${username}"?`)) return;
-    await DB.deleteUser(username);
-    this.toast(`User "${username}" removed`, 'success');
-    this.refreshSettings();
-  },
-
-  async resetUserPin(username) {
-    const newPin = prompt(`Enter new PIN for "${username}":`);
-    if (!newPin || newPin.length < 4) { this.toast('PIN must be at least 4 characters', 'error'); return; }
-    const user = await DB.getUser(username);
-    if (user) { user.pin = newPin; await DB.putUser(user); }
-    this.toast(`PIN reset for "${username}"`, 'success');
-  },
-
-  async archiveOld() {
-    const days = parseInt(document.getElementById('set-retention').value) || 90;
-    if (!confirm(`Archive records older than ${days} days?`)) return;
-    const count = await DB.deleteOlderThan(days);
-    await DB.setSetting('retention_days', days.toString());
-    this.toast(`${count} records archived`, 'success');
-  },
-
-  // ─── EVENT BINDING ───
-  bindEvents() {
-    // Login
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const user = document.getElementById('login-user').value.trim();
-      const pass = document.getElementById('login-pass').value;
-      const errEl = document.getElementById('login-error');
-
-      if (await this.authenticate(user, pass)) {
-        this.showApp();
-      } else {
-        errEl.textContent = 'Invalid credentials. Please try again.';
-        errEl.style.display = 'block';
-        document.getElementById('login-pass').value = '';
-      }
-    });
-
-    // Lock
-    document.getElementById('btn-lock').addEventListener('click', () => this.lock());
-
-    // Check-in form
-    document.getElementById('checkin-form').addEventListener('submit', (e) => this.handleCheckin(e));
-
-    // Confirm actions
-    document.getElementById('btn-confirm-checkin').addEventListener('click', () => this.confirmCheckin());
-    document.getElementById('btn-confirm-checkout').addEventListener('click', () => this.confirmCheckout());
-
-    // Exit search with debounce
-    let searchTimeout;
-    document.getElementById('exit-search').addEventListener('input', () => {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => this.refreshExitSearch(), 300);
-    });
-
-    // Log search with debounce
-    let logSearchTimeout;
-    document.getElementById('log-search').addEventListener('input', () => {
-      clearTimeout(logSearchTimeout);
-      logSearchTimeout = setTimeout(() => this.refreshLogs(), 300);
-    });
-
-    // Log filters
-    document.querySelectorAll('.filter-pill').forEach(pill => {
-      pill.addEventListener('click', () => {
-        document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-        this.logFilter = pill.dataset.filter;
-
-        const customRange = document.getElementById('custom-date-range');
-        if (this.logFilter === 'custom') {
-          customRange.style.display = 'block';
-        } else {
-          customRange.style.display = 'none';
-          this.refreshLogs();
-        }
-      });
-    });
-
-    // Custom date range
-    document.getElementById('log-date-from').addEventListener('change', () => this.refreshLogs());
-    document.getElementById('log-date-to').addEventListener('change', () => this.refreshLogs());
-  },
-
-  // ─── TOAST ───
-  toast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-    const icons = { success: 'check-circle-fill', error: 'x-circle-fill', warning: 'exclamation-triangle-fill', info: 'info-circle-fill' };
-    const toast = document.createElement('div');
-    toast.className = `sc-toast toast-${type}`;
-    toast.innerHTML = `<i class="bi bi-${icons[type] || icons.info}"></i><span>${this.esc(message)}</span>`;
-    container.appendChild(toast);
-    requestAnimationFrame(() => { requestAnimationFrame(() => toast.classList.add('show')); });
-    setTimeout(() => {
-      toast.classList.remove('show');
-      setTimeout(() => toast.remove(), 300);
-    }, 3000);
-  },
-
-  // ─── ESCAPE HTML ───
-  esc(str) {
-    if (!str) return '';
-    const el = document.createElement('span');
-    el.textContent = str;
-    return el.innerHTML;
-  }
-};
-
-// ─── SERVICE WORKER REGISTRATION ───
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(err => {
-    console.warn('SW registration failed:', err);
-  });
-}
-
-// ─── BOOT ───
-document.addEventListener('DOMContentLoaded', () => App.init());
-</script>
+<script src="./vendor/bootstrap.bundle.min.js"></script>
+<script src="./vendor/xlsx.full.min.js"></script>
+<script src="./app.js"></script>
 </body>
 </html>
+
+
