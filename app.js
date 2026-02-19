@@ -358,6 +358,13 @@ const Sync = {
     return { 'Authorization': 'token ' + t };
   },
 
+  getBlockedReason(url) {
+    if (window.location.protocol === 'https:' && /^http:\/\//i.test(url || '')) {
+      return 'Blocked: HTTPS app cannot call HTTP API (mixed content)';
+    }
+    return 'Blocked by browser/network (possible CORS, CSP, SSL, or connectivity issue)';
+  },
+
   // Convert ISO datetime to MySQL-compatible format: YYYY-MM-DD HH:MM:SS
   toMySQL(iso) {
     if (!iso) return null;
@@ -435,7 +442,7 @@ const Sync = {
           await DB.addVisitor(record);
         } catch (err) {
           if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
-            record.sync_error = 'CORS blocked â€” server must allow this origin';
+            record.sync_error = this.getBlockedReason(this.config.url);
             corsBlocked = true;
           } else {
             record.sync_error = err.message;
@@ -502,7 +509,15 @@ const Sync = {
         err.message.includes('NetworkError') ||
         err.message.includes('CORS')
       )) {
-        return { ok: false, cors: true, error: 'CORS blocked â€” server must allow this origin' };
+        const mixedContent = window.location.protocol === 'https:' && /^http:\/\//i.test(url || '');
+        return {
+          ok: false,
+          cors: !mixedContent,
+          mixedContent,
+          error: mixedContent
+            ? 'Mixed content blocked: HTTPS app cannot call HTTP API endpoint'
+            : 'Request blocked by browser/network (possible CORS, CSP, SSL, or connectivity issue)'
+        };
       }
       return { ok: false, error: err.message };
     }
@@ -1245,6 +1260,9 @@ const App = {
 
     Sync.config = (url && token) ? { url, token } : null;
     Sync.updateUI();
+    if (Sync.config && Sync.isOnline) {
+      Sync.startSync();
+    }
     this.toast('Sync configuration saved', 'success');
   },
 
@@ -1262,6 +1280,16 @@ const App = {
 
     if (result.ok) {
       el.innerHTML = `<span class="text-success-custom"><i class="bi bi-check-circle-fill me-1"></i>Connection successful (HTTP ${result.status})</span>`;
+    } else if (result.mixedContent) {
+      el.innerHTML = `
+        <div class="text-danger-custom mb-2">
+          <i class="bi bi-shield-exclamation me-1"></i><strong>Mixed Content Blocked</strong>
+        </div>
+        <div class="sync-cors-details">
+          This app is running over <code class="text-accent">HTTPS</code> but the API endpoint is <code class="text-accent">HTTP</code>.<br><br>
+          Use an <code class="text-accent">https://</code> API endpoint, or run the app over HTTP for local testing only.
+        </div>
+      `;
     } else if (result.cors) {
       const origin = window.location.origin;
       el.innerHTML = `
