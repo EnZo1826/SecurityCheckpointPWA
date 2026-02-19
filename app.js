@@ -348,6 +348,18 @@ const Sync = {
   maxBackoff: 60000,
   isOnline: navigator.onLine,
 
+  async trace(status, extra = {}) {
+    try {
+      await DB.setSetting('sync_last_trace', JSON.stringify({
+        at: T.now(),
+        status,
+        ...extra
+      }));
+    } catch (_) {
+      // no-op
+    }
+  },
+
   async init() {
     const url = await DB.getSetting('sync_api_url');
     const token = await DB.getSetting('sync_api_token');
@@ -422,11 +434,14 @@ const Sync = {
 
   async doSync() {
     if (!this.config || !this.isOnline) return;
+    await this.trace('start', { url: this.config.url });
     try {
       const unsynced = await DB.getUnsynced();
+      await this.trace('fetched_unsynced', { count: unsynced.length });
       if (unsynced.length === 0) {
         this.backoff = 30000;
         this.scheduleNext();
+        await this.trace('idle_no_unsynced');
         return;
       }
 
@@ -434,31 +449,42 @@ const Sync = {
 
       for (const record of unsynced) {
         try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 15000);
           const resp = await fetch(this.config.url, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               ...this.getAuthHeader()
             },
-            body: JSON.stringify(this.preparePayload(record))
+            body: JSON.stringify(this.preparePayload(record)),
+            signal: controller.signal
           });
+          clearTimeout(timeout);
 
           if (resp.ok) {
             record.synced = true;
             record.sync_error = null;
+            await this.trace('record_synced', { id: record.id, status: resp.status });
           } else {
             const errText = await resp.text().catch(() => '');
             record.sync_error = `HTTP ${resp.status}: ${errText.slice(0, 150)}`;
+            await this.trace('record_http_error', { id: record.id, status: resp.status });
           }
 
           record.updated_at = T.now();
           await DB.addVisitor(record);
         } catch (err) {
-          if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
+          if (err && err.name === 'AbortError') {
+            record.sync_error = 'Request timeout: server did not respond within 15s';
+            await this.trace('record_timeout', { id: record.id });
+          } else if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
             record.sync_error = this.getBlockedReason(this.config.url);
             corsBlocked = true;
+            await this.trace('record_fetch_blocked', { id: record.id, reason: record.sync_error });
           } else {
             record.sync_error = err.message;
+            await this.trace('record_exception', { id: record.id, message: err.message });
           }
           record.updated_at = T.now();
           await DB.addVisitor(record);
@@ -470,17 +496,20 @@ const Sync = {
         this.backoff = this.maxBackoff;
         this.scheduleNext();
         App.toast('Sync blocked by CORS â€” configure server headers', 'error');
+        await this.trace('blocked', { backoff: this.backoff });
         return;
       }
 
       this.backoff = 5000;
       this.scheduleNext();
       await DB.setSetting('last_sync', T.now());
+      await this.trace('complete', { backoff: this.backoff });
       App.toast('Sync complete', 'success');
     } catch (err) {
       console.warn('Sync error:', err.message);
       this.backoff = Math.min(this.backoff * 2, this.maxBackoff);
       this.scheduleNext();
+      await this.trace('fatal', { message: err.message, backoff: this.backoff });
     }
   },
 
@@ -1350,11 +1379,19 @@ const App = {
   async exportSyncDiag() {
     const all = await DB.getAllVisitors();
     const failed = all.filter(v => v.sync_error);
+    let lastTrace = null;
+    try {
+      const rawTrace = await DB.getSetting('sync_last_trace');
+      lastTrace = rawTrace ? JSON.parse(rawTrace) : null;
+    } catch (_) {
+      lastTrace = null;
+    }
     const data = {
       device_id: getDeviceId(),
       timestamp: T.now(),
       config: Sync.config ? { url: Sync.config.url, hasToken: !!Sync.config.token } : null,
       online: Sync.isOnline,
+      lastTrace,
       totalRecords: all.length,
       syncedCount: all.filter(v => v.synced).length,
       unsyncedCount: all.filter(v => !v.synced).length,
