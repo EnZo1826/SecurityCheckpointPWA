@@ -206,8 +206,21 @@ const DB = {
     return new Promise((resolve, reject) => {
       const store = this._tx('visitors');
       const idx = store.index('synced');
-      const req = idx.getAll(false);
-      req.onsuccess = () => resolve(req.result || []);
+      const unsynced = [];
+      const req = idx.openCursor();
+      req.onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (!cursor) {
+          resolve(unsynced);
+          return;
+        }
+        // IndexedDB keys do not support boolean queries directly.
+        // Treat anything not explicitly true as unsynced for backward compatibility.
+        if (cursor.value?.synced !== true) {
+          unsynced.push(cursor.value);
+        }
+        cursor.continue();
+      };
       req.onerror = (e) => reject(e.target.error);
     });
   },
